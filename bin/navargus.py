@@ -25,12 +25,18 @@ import os
 import fcntl
 import re
 import logging
-
 from json import JSONDecoder, JSONDecodeError
+
+import requests
+
 
 _logger = logging.getLogger("navae")
 ARGUS_API_URL = ""
 ARGUS_API_TOKEN = ""
+ARGUS_HEADERS = {
+    "Authorization": "Token " + ARGUS_API_TOKEN,
+    "Content-Type": "text/plain",
+}
 NOT_WHITESPACE = re.compile(r"[^\s]")
 
 
@@ -44,8 +50,8 @@ def main():
     flag = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, flag | os.O_NONBLOCK)
 
-    for blob in emit_json_objects_from(sys.stdin):
-        print(blob)
+    for alert in emit_json_objects_from(sys.stdin):
+        dispatch_alert_to_argus(alert)
 
 
 def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
@@ -84,6 +90,11 @@ def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
         buffer = buffer[pos:]
     if error is not None:
         raise error
+
+
+def dispatch_alert_to_argus(alert):
+    """Dispatches an alert structure to an Argus instance via its REST API"""
+    requests.post(url=ARGUS_API_URL + "/alerts/", headers=ARGUS_HEADERS, json=alert)
 
 
 if __name__ == "__main__":
