@@ -38,6 +38,8 @@ ARGUS_HEADERS = {
     "Content-Type": "text/plain",
 }
 NOT_WHITESPACE = re.compile(r"[^\s]")
+STATE_START = "s"
+STATE_END = "e"
 
 
 def main():
@@ -94,7 +96,32 @@ def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
 
 def dispatch_alert_to_argus(alert):
     """Dispatches an alert structure to an Argus instance via its REST API"""
-    requests.post(url=ARGUS_API_URL + "/alerts/", headers=ARGUS_HEADERS, json=alert)
+    pk = post_alert_to_argus(alert)
+    state = alert.get("state")
+    if state == STATE_START and pk:
+        activate_argus_alert(pk)
+
+
+def post_alert_to_argus(alert):
+    """Posts an alert payload to an Argus API instance"""
+    response = requests.post(
+        url=ARGUS_API_URL + "/alerts/", headers=ARGUS_HEADERS, json=alert
+    )
+    if response.status_code == 200:
+        payload = response.json()
+        pk = payload.get("pk")
+        return pk
+    else:
+        _logger.error("Failed posting alert to Argus: %s", response.content)
+
+
+def activate_argus_alert(alert_id):
+    """Activates a newly-posted Argus alert"""
+    url = "{}/alerts/{}/active".format(Argus_API_URL, alert_id)
+    headers = ARGUS_HEADERS.copy()
+    del headers["Content-Type"]
+    _logger.debug("Activating Argus alert id %s", alert_id)
+    response = requests.put(url=url, headers=headers, json={"active": True})
 
 
 if __name__ == "__main__":
