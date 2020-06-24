@@ -20,6 +20,7 @@ Exports events from NAV's Event Engine streaming interface into an Argus server.
 
 JSON parsing inspired by https://stackoverflow.com/a/58442063
 """
+import select
 import sys
 import os
 import fcntl
@@ -71,6 +72,7 @@ def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
     buffer = ""
     error = None
     while True:
+        select.select([stream], [], [])
         block = stream.read(buf_size)
         if not block:
             continue
