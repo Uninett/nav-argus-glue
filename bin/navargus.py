@@ -27,20 +27,22 @@ import fcntl
 import re
 import logging
 from json import JSONDecoder, JSONDecodeError
+from typing import Generator, Any
 
 import requests
 
 
-_logger = logging.getLogger("navae")
+_logger = logging.getLogger("navargus")
 ARGUS_API_URL = ""
 ARGUS_API_TOKEN = ""
 ARGUS_HEADERS = {
     "Authorization": "Token " + ARGUS_API_TOKEN,
-    "Content-Type": "text/plain",
+    "Content-Type": "application/json",
 }
 NOT_WHITESPACE = re.compile(r"[^\s]")
 STATE_START = "s"
 STATE_END = "e"
+STATE_STATELESS = "x"
 
 
 def main():
@@ -96,34 +98,89 @@ def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
         raise error
 
 
-def dispatch_alert_to_argus(alert):
+def dispatch_alert_to_argus(alert: dict):
     """Dispatches an alert structure to an Argus instance via its REST API"""
-    pk = post_alert_to_argus(alert)
     state = alert.get("state")
-    if state == STATE_START and pk:
-        activate_argus_alert(pk)
+    if state in (STATE_START, STATE_STATELESS):
+        incident = convert_to_argus_incident(alert)
+        post_incident_to_argus(incident)
+    else:
+        resolve_argus_incident(alert)
 
 
-def post_alert_to_argus(alert):
-    """Posts an alert payload to an Argus API instance"""
+def convert_to_argus_incident(alert: dict) -> dict:
+    """
+    :param alert: A JSON-serialized AlertQueue instance from NAV, in the form of a dict
+    :returns: A dict describing an Argus Incident, suitable for POSTing to its API.
+    """
+    state = alert.get("state", STATE_STATELESS)
+    incident = {
+        "start_time": alert.get("time"),
+        "end_time": "infinity" if state == STATE_START else None,
+        "source_incident_id": alert.get("history"),
+        "details_url": alert.get("alert_details_url"),
+        "description": alert.get("message"),
+        "tags": list(build_tags_from(alert)),
+    }
+
+    return incident
+
+
+def build_tags_from(alert: dict) -> Generator:
+    """
+    Generates a series of tag objects
+    :param alert: A JSON-serialized AlertQueue instance from NAV, in the form of a dict
+    :returns: A list of tag dicts for posting with an Argus Incident
+    """
+    yield tag("event_type", alert.get("event_type", {}).get("id"))
+    yield tag("alert_type", alert.get("alert_type", {}).get("name"))
+    subject_type = alert.get("subject_type")
+
+    # The JSON blob provided by eventengine does not drill deep into the data model,
+    # so we will need to look up certain data from NAV itself to produce an accurate
+    # set of tags:
+    # TODO: Look up the alert's netbox, even though the subject is something else
+    # TODO: Find a sane convention for translating various event subjects to tags, such
+    #       as Interface, power supply, module etc.
+
+    if subject_type == "Netbox":
+        yield tag("host", alert.get("subject"))
+        yield tag("host_url", alert.get("subject_url"))
+    elif subject_type == "Interface":
+        yield tag("interface", alert.get("subject"))
+
+
+def tag(key: str, value: Any) -> dict:
+    """Returns a Argus-compliant tag object that can be converted to JSON for the API"""
+    return {"tag": "{}={}".format(key, value)}
+
+
+def post_incident_to_argus(incident):
+    """Posts an incident payload to an Argus API instance"""
     response = requests.post(
-        url=ARGUS_API_URL + "/alerts/", headers=ARGUS_HEADERS, json=alert
+        url=ARGUS_API_URL + "/incidents/", headers=ARGUS_HEADERS, json=incident
     )
-    if response.status_code == 200:
+    if response.status_code in (200, 201):
         payload = response.json()
         pk = payload.get("pk")
         return pk
     else:
-        _logger.error("Failed posting alert to Argus: %s", response.content)
+        _logger.error(
+            "Failed posting alert to Argus (%r): %r",
+            response.status_code,
+            response.content,
+        )
 
 
-def activate_argus_alert(alert_id):
-    """Activates a newly-posted Argus alert"""
-    url = "{}/alerts/{}/active".format(Argus_API_URL, alert_id)
-    headers = ARGUS_HEADERS.copy()
-    del headers["Content-Type"]
-    _logger.debug("Activating Argus alert id %s", alert_id)
-    response = requests.put(url=url, headers=headers, json={"active": True})
+def resolve_argus_incident(alert: dict):
+    """Looks up and resolves an existing incident in Argus based on the supplied
+    end-state alert.
+    """
+    _logger._warning(
+        "Argus API does not yet support retrieving alerts by "
+        "source_system_id, so I cannot easily look up old incidents to "
+        "close"
+    )
 
 
 if __name__ == "__main__":
