@@ -29,6 +29,13 @@ import logging
 from json import JSONDecoder, JSONDecodeError
 from typing import Generator, Any
 
+from django.urls import reverse
+
+from nav.bootstrap import bootstrap_django
+bootstrap_django("navargus")
+
+from nav.models.manage import Netbox, Interface
+
 import requests
 
 
@@ -141,15 +148,19 @@ def build_tags_from(alert: dict) -> Generator:
     # The JSON blob provided by eventengine does not drill deep into the data model,
     # so we will need to look up certain data from NAV itself to produce an accurate
     # set of tags:
-    # TODO: Look up the alert's netbox, even though the subject is something else
     # TODO: Find a sane convention for translating various event subjects to tags, such
-    #       as Interface, power supply, module etc.
+    #       as power supplies, modules etc.
 
+    if alert.get("netbox"):
+        netbox = Netbox.objects.get(pk=alert.get("netbox"))
+        yield tag("host", netbox.sysname)
+        yield tag("room", netbox.room.id)
+        yield tag("location", netbox.room.location.id)
     if subject_type == "Netbox":
-        yield tag("host", alert.get("subject"))
         yield tag("host_url", alert.get("subject_url"))
     elif subject_type == "Interface":
-        yield tag("interface", alert.get("subject"))
+        interface = Interface.objects.get(pk=alert.get("subid"))
+        yield tag("interface", interface.ifname)
 
 
 def tag(key: str, value: Any) -> dict:
