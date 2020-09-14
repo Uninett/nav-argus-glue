@@ -123,11 +123,14 @@ def convert_to_argus_incident(alert: dict) -> dict:
     :returns: A dict describing an Argus Incident, suitable for POSTing to its API.
     """
     state = alert.get("state", STATE_STATELESS)
+    url = reverse("event-details", args=(alert.get("history"),)) if alert.get("history") else None
+
+
     incident = {
         "start_time": alert.get("time"),
         "end_time": "infinity" if state == STATE_START else None,
         "source_incident_id": alert.get("history"),
-        "details_url": alert.get("alert_details_url"),
+        "details_url": url if url else alert.get("alert_details_url"),
         "description": alert.get("message"),
         "tags": list(build_tags_from(alert)),
     }
