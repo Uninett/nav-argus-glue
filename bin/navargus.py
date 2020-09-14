@@ -37,6 +37,8 @@ ARGUS_API_URL = ""
 ARGUS_API_TOKEN = ""
 ARGUS_HEADERS = {
     "Authorization": "Token " + ARGUS_API_TOKEN,
+}
+POST_HEADERS = {
     "Content-Type": "application/json",
 }
 NOT_WHITESPACE = re.compile(r"[^\s]")
@@ -158,7 +160,9 @@ def tag(key: str, value: Any) -> dict:
 def post_incident_to_argus(incident):
     """Posts an incident payload to an Argus API instance"""
     response = requests.post(
-        url=ARGUS_API_URL + "/incidents/", headers=ARGUS_HEADERS, json=incident
+        url=ARGUS_API_URL + "/incidents/",
+        headers={**ARGUS_HEADERS, **POST_HEADERS},
+        json=incident,
     )
     if response.status_code in (200, 201):
         payload = response.json()
@@ -176,11 +180,54 @@ def resolve_argus_incident(alert: dict):
     """Looks up and resolves an existing incident in Argus based on the supplied
     end-state alert.
     """
-    _logger._warning(
-        "Argus API does not yet support retrieving alerts by "
-        "source_system_id, so I cannot easily look up old incidents to "
-        "close"
+    nav_alert_id = alert.get("history")
+    if not nav_alert_id:
+        return
+
+    incident = find_existing_argus_incident(nav_alert_id)
+    if incident:
+        if incident.get("end_time") != "infinity":
+            _logger.error("Cannot resolve a stateless incident")
+            return
+        post_incident_resolve_event(incident, alert)
+
+    else:
+        _logger.warning("Couldn't find corresponding Argus Incident to resolve")
+
+
+def find_existing_argus_incident(nav_alert_id: int) -> dict:
+    """Retrieves an existing Incident from Argus based on a NAV alert ID"""
+    endpoint = "/incidents/mine/?source_incident_id={}".format(nav_alert_id)
+    response = requests.get(url=ARGUS_API_URL + endpoint, headers=ARGUS_HEADERS)
+    if response.status_code == 200:
+        payload = response.json()
+        if payload:
+            return payload[0]
+
+
+def post_incident_resolve_event(incident: dict, alert: dict):
+    incident_id = incident.get("pk")
+    endpoint = "/incidents/{}/events/".format(incident_id)
+    event = {
+        "timestamp": alert.get("time"),
+        "type": "END",
+        "description": alert.get("message"),
+    }
+    response = requests.post(
+        url=ARGUS_API_URL + endpoint,
+        headers={**ARGUS_HEADERS, **POST_HEADERS},
+        json=event,
     )
+    if response.status_code in (200, 201):
+        payload = response.json()
+        pk = payload.get("pk")
+        return pk
+    else:
+        _logger.error(
+            "Failed posting incident end event to Argus (%r): %r",
+            response.status_code,
+            response.content,
+        )
 
 
 if __name__ == "__main__":
