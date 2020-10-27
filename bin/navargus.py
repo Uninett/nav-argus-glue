@@ -32,6 +32,7 @@ from typing import Generator, Any
 from django.urls import reverse
 
 from nav.bootstrap import bootstrap_django
+
 bootstrap_django("navargus")
 
 from nav.models.manage import Netbox, Interface
@@ -42,12 +43,8 @@ import requests
 _logger = logging.getLogger("navargus")
 ARGUS_API_URL = ""
 ARGUS_API_TOKEN = ""
-ARGUS_HEADERS = {
-    "Authorization": "Token " + ARGUS_API_TOKEN,
-}
-POST_HEADERS = {
-    "Content-Type": "application/json",
-}
+ARGUS_HEADERS = {"Authorization": "Token " + ARGUS_API_TOKEN}
+POST_HEADERS = {"Content-Type": "application/json"}
 NOT_WHITESPACE = re.compile(r"[^\s]")
 STATE_START = "s"
 STATE_END = "e"
@@ -123,8 +120,11 @@ def convert_to_argus_incident(alert: dict) -> dict:
     :returns: A dict describing an Argus Incident, suitable for POSTing to its API.
     """
     state = alert.get("state", STATE_STATELESS)
-    url = reverse("event-details", args=(alert.get("history"),)) if alert.get("history") else None
-
+    url = (
+        reverse("event-details", args=(alert.get("history"),))
+        if alert.get("history")
+        else None
+    )
 
     incident = {
         "start_time": alert.get("time"),
