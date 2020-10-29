@@ -26,10 +26,13 @@ import os
 import fcntl
 import re
 import logging
+from datetime import datetime
 from json import JSONDecoder, JSONDecodeError
 from typing import Generator, Any
 
 from django.urls import reverse
+from pyargus.client import Client
+from pyargus.models import Incident
 
 from nav.bootstrap import bootstrap_django
 
@@ -37,18 +40,16 @@ bootstrap_django("navargus")
 
 from nav.models.manage import Netbox, Interface
 
-import requests
-
 
 _logger = logging.getLogger("navargus")
 ARGUS_API_URL = ""
 ARGUS_API_TOKEN = ""
-ARGUS_HEADERS = {"Authorization": "Token " + ARGUS_API_TOKEN}
-POST_HEADERS = {"Content-Type": "application/json"}
+_client = None
 NOT_WHITESPACE = re.compile(r"[^\s]")
 STATE_START = "s"
 STATE_END = "e"
 STATE_STATELESS = "x"
+INFINITY = datetime.max
 
 
 def main():
@@ -114,10 +115,10 @@ def dispatch_alert_to_argus(alert: dict):
         resolve_argus_incident(alert)
 
 
-def convert_to_argus_incident(alert: dict) -> dict:
+def convert_to_argus_incident(alert: dict) -> Incident:
     """
     :param alert: A JSON-serialized AlertQueue instance from NAV, in the form of a dict
-    :returns: A dict describing an Argus Incident, suitable for POSTing to its API.
+    :returns: An object describing an Argus Incident, suitable for POSTing to its API.
     """
     state = alert.get("state", STATE_STATELESS)
     url = (
@@ -126,26 +127,27 @@ def convert_to_argus_incident(alert: dict) -> dict:
         else None
     )
 
-    incident = {
-        "start_time": alert.get("time"),
-        "end_time": "infinity" if state == STATE_START else None,
-        "source_incident_id": alert.get("history"),
-        "details_url": url if url else alert.get("alert_details_url"),
-        "description": alert.get("message"),
-        "tags": list(build_tags_from(alert)),
-    }
+    incident = Incident(
+        start_time=alert.get("time"),
+        end_time=INFINITY if state == STATE_START else None,
+        source_incident_id=alert.get("history"),
+        details_url=url if url else alert.get("alert_details_url"),
+        description=alert.get("message"),
+        tags=dict(build_tags_from(alert)),
+    )
 
     return incident
 
 
 def build_tags_from(alert: dict) -> Generator:
     """
-    Generates a series of tag objects
+    Generates a series of tag tuples
     :param alert: A JSON-serialized AlertQueue instance from NAV, in the form of a dict
-    :returns: A list of tag dicts for posting with an Argus Incident
+    :returns: A generator of (tag_name, tag_value) tuples, suitable to make a tag
+              dictionary for an Argus incident.
     """
-    yield tag("event_type", alert.get("event_type", {}).get("id"))
-    yield tag("alert_type", alert.get("alert_type", {}).get("name"))
+    yield "event_type", alert.get("event_type", {}).get("id")
+    yield "alert_type", alert.get("alert_type", {}).get("name")
     subject_type = alert.get("subject_type")
 
     # The JSON blob provided by eventengine does not drill deep into the data model,
@@ -156,38 +158,22 @@ def build_tags_from(alert: dict) -> Generator:
 
     if alert.get("netbox"):
         netbox = Netbox.objects.get(pk=alert.get("netbox"))
-        yield tag("host", netbox.sysname)
-        yield tag("room", netbox.room.id)
-        yield tag("location", netbox.room.location.id)
+        yield "host", netbox.sysname
+        yield "room", netbox.room.id
+        yield "location", netbox.room.location.id
     if subject_type == "Netbox":
-        yield tag("host_url", alert.get("subject_url"))
+        yield "host_url", alert.get("subject_url")
     elif subject_type == "Interface":
         interface = Interface.objects.get(pk=alert.get("subid"))
-        yield tag("interface", interface.ifname)
+        yield "interface", interface.ifname
 
 
-def tag(key: str, value: Any) -> dict:
-    """Returns a Argus-compliant tag object that can be converted to JSON for the API"""
-    return {"tag": "{}={}".format(key, value)}
-
-
-def post_incident_to_argus(incident):
+def post_incident_to_argus(incident: Incident) -> int:
     """Posts an incident payload to an Argus API instance"""
-    response = requests.post(
-        url=ARGUS_API_URL + "/incidents/",
-        headers={**ARGUS_HEADERS, **POST_HEADERS},
-        json=incident,
-    )
-    if response.status_code in (200, 201):
-        payload = response.json()
-        pk = payload.get("pk")
-        return pk
-    else:
-        _logger.error(
-            "Failed posting alert to Argus (%r): %r",
-            response.status_code,
-            response.content,
-        )
+    client = get_argus_client()
+    incident_response = client.post_incident(incident)
+    if incident_response:
+        return incident_response.pk
 
 
 def resolve_argus_incident(alert: dict):
@@ -198,50 +184,28 @@ def resolve_argus_incident(alert: dict):
     if not nav_alert_id:
         return
 
-    incident = find_existing_argus_incident(nav_alert_id)
+    client = get_argus_client()
+    incident = next(
+        client.get_my_incidents(open=True, source_incident_id=nav_alert_id), None,
+    )
     if incident:
-        if incident.get("end_time") != "infinity":
+        if incident.end_time != INFINITY:
             _logger.error("Cannot resolve a stateless incident")
             return
-        post_incident_resolve_event(incident, alert)
 
+        client.resolve_incident(
+            incident, description=alert.get("message"), timestamp=alert.get("time")
+        )
     else:
         _logger.warning("Couldn't find corresponding Argus Incident to resolve")
 
 
-def find_existing_argus_incident(nav_alert_id: int) -> dict:
-    """Retrieves an existing Incident from Argus based on a NAV alert ID"""
-    endpoint = "/incidents/mine/?source_incident_id={}".format(nav_alert_id)
-    response = requests.get(url=ARGUS_API_URL + endpoint, headers=ARGUS_HEADERS)
-    if response.status_code == 200:
-        payload = response.json()
-        if payload:
-            return payload[0]
-
-
-def post_incident_resolve_event(incident: dict, alert: dict):
-    incident_id = incident.get("pk")
-    endpoint = "/incidents/{}/events/".format(incident_id)
-    event = {
-        "timestamp": alert.get("time"),
-        "type": "END",
-        "description": alert.get("message"),
-    }
-    response = requests.post(
-        url=ARGUS_API_URL + endpoint,
-        headers={**ARGUS_HEADERS, **POST_HEADERS},
-        json=event,
-    )
-    if response.status_code in (200, 201):
-        payload = response.json()
-        pk = payload.get("pk")
-        return pk
-    else:
-        _logger.error(
-            "Failed posting incident end event to Argus (%r): %r",
-            response.status_code,
-            response.content,
-        )
+def get_argus_client():
+    """Returns a (cached) API client object"""
+    global _client
+    if not _client:
+        _client = Client(api_root_url=ARGUS_API_URL, token=ARGUS_API_TOKEN)
+    return _client
 
 
 if __name__ == "__main__":
