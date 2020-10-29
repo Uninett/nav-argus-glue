@@ -39,6 +39,7 @@ from nav.bootstrap import bootstrap_django
 bootstrap_django("navargus")
 
 from nav.models.manage import Netbox, Interface
+from nav.logs import init_stderr_logging
 
 
 _logger = logging.getLogger("navargus")
@@ -54,7 +55,7 @@ INFINITY = datetime.max
 
 def main():
     """Main execution point"""
-    logging.basicConfig(level=logging.DEBUG)
+    init_stderr_logging()
 
     # Ensure we do non-blocking reads from stdin, as we don't wont to get stuck when
     # we receive blobs that are smaller than the set buffer size
