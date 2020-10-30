@@ -31,6 +31,7 @@ from datetime import datetime
 from json import JSONDecoder, JSONDecodeError
 from typing import Generator, Any
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.urls import reverse
 from pyargus.client import Client
 from pyargus.models import Incident
@@ -40,6 +41,7 @@ from nav.bootstrap import bootstrap_django
 bootstrap_django("navargus")
 
 from nav.models.manage import Netbox, Interface
+from nav.models.event import AlertHistory
 from nav.logs import init_stderr_logging
 from nav.config import NAVConfigParser
 
@@ -63,6 +65,8 @@ def main():
     parser = parse_args()
     if parser.test_api:
         test_argus_api()
+    elif parser.sync_report:
+        sync_report()
     else:
         read_eventengine_stream()
 
@@ -75,8 +79,15 @@ def parse_args():
         epilog="This program is designed to be run as an export script by NAV's event "
         "engine. See eventengine.conf for details.",
     )
-    parser.add_argument(
+    runtime_modes = parser.add_mutually_exclusive_group()
+    runtime_modes.add_argument(
         "--test-api", action="store_true", help="Tests Argus API access"
+    )
+    runtime_modes.add_argument(
+        "--sync-report",
+        action="store_true",
+        help="Prints a short report on NAV Alerts and Argus Incidents that aren't "
+        "properly synced",
     )
     return parser.parse_args()
 
@@ -251,6 +262,53 @@ def test_argus_api():
     next(incidents, None)
     print(
         "Argus API is accessible at {}".format(client.api.api_root_url), file=sys.stderr
+    )
+
+
+def sync_report():
+    """Prints a short report on which alerts and incidents aren't synced"""
+    client = get_argus_client()
+    nav_alerts = {
+        a.pk: a for a in AlertHistory.objects.unresolved().prefetch_related("messages")
+    }
+    argus_incidents = {
+        int(i.source_incident_id): i for i in client.get_my_incidents(open=True)
+    }
+
+    missed_resolve = set(argus_incidents).difference(nav_alerts)
+    missed_open = set(nav_alerts).difference(argus_incidents)
+
+    if missed_resolve:
+        caption = "These incidents are resolved in NAV, but not in Argus"
+        print(caption + "\n" + "=" * len(caption))
+        for pk in missed_resolve:
+            print(describe_incident(argus_incidents[pk]))
+        if missed_open:
+            print()
+
+    if missed_open:
+        caption = "These incidents are open in NAV, but are missing from Argus"
+        print(caption + "\n" + "=" * len(caption))
+        for pk in missed_open:
+            print(describe_alerthist(nav_alerts[pk]))
+
+
+def describe_alerthist(alerthist: AlertHistory):
+    """Describes an alerthist object for tabulated output to stdout"""
+    msgs = alerthist.messages.filter(type="sms", state=STATE_START, language="en")
+    msg = msgs[0].message if msgs else "N/A"
+
+    return "{pk}\t{timestamp}\t{msg}".format(
+        pk=alerthist.pk, timestamp=alerthist.start_time, msg=msg
+    )
+
+
+def describe_incident(incident: Incident):
+    """Describes an Argus Incident object for tabulated output to stdout"""
+    return "{pk}\t{timestamp}\t{msg}".format(
+        pk=incident.source_incident_id,
+        timestamp=incident.start_time,
+        msg=incident.description,
     )
 
 
