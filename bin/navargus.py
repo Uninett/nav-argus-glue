@@ -81,6 +81,7 @@ def read_eventengine_stream():
     """
     # Ensure we do non-blocking reads from stdin, as we don't wont to get stuck when
     # we receive blobs that are smaller than the set buffer size
+    _logger.info("Accepting eventengine stream data on stdin (pid=%s)", os.getpid())
     fd = sys.stdin.fileno()
     flag = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, flag | os.O_NONBLOCK)
@@ -89,6 +90,7 @@ def read_eventengine_stream():
         for alert in emit_json_objects_from(sys.stdin):
             dispatch_alert_to_argus(alert)
     except KeyboardInterrupt:
+        _logger.info("Keyboard interrupt received, exiting")
         pass
 
 
