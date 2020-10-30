@@ -65,8 +65,11 @@ def main():
     flag = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, flag | os.O_NONBLOCK)
 
-    for alert in emit_json_objects_from(sys.stdin):
-        dispatch_alert_to_argus(alert)
+    try:
+        for alert in emit_json_objects_from(sys.stdin):
+            dispatch_alert_to_argus(alert)
+    except KeyboardInterrupt:
+        pass
 
 
 def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
