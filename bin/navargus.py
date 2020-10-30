@@ -14,7 +14,7 @@
 # details.  You should have received a copy of the GNU General Public License
 # along with NAV. If not, see <http://www.gnu.org/licenses/>.
 #
-"""NAV Event Engine -> Argus Exporter
+"""NAV Event Engine -> Argus Exporter - AKA Argus glue service for NAV.
 
 Exports events from NAV's Event Engine streaming interface into an Argus server.
 
@@ -40,12 +40,12 @@ bootstrap_django("navargus")
 
 from nav.models.manage import Netbox, Interface
 from nav.logs import init_stderr_logging
+from nav.config import NAVConfigParser
 
 
 _logger = logging.getLogger("navargus")
-ARGUS_API_URL = ""
-ARGUS_API_TOKEN = ""
 _client = None
+_config = None
 NOT_WHITESPACE = re.compile(r"[^\s]")
 STATE_START = "s"
 STATE_END = "e"
@@ -55,7 +55,9 @@ INFINITY = datetime.max
 
 def main():
     """Main execution point"""
+    global _config
     init_stderr_logging()
+    _config = NAVArgusConfig()
 
     # Ensure we do non-blocking reads from stdin, as we don't wont to get stuck when
     # we receive blobs that are smaller than the set buffer size
@@ -205,8 +207,27 @@ def get_argus_client():
     """Returns a (cached) API client object"""
     global _client
     if not _client:
-        _client = Client(api_root_url=ARGUS_API_URL, token=ARGUS_API_TOKEN)
+        _client = Client(
+            api_root_url=_config.get_api_url(), token=_config.get_api_token()
+        )
     return _client
+
+
+class NAVArgusConfig(NAVConfigParser):
+    """Config file definition for NAVArgus glue service"""
+
+    DEFAULT_CONFIG_FILES = ("navargus.conf",)
+    DEFAULT_CONFIG = """
+[api]
+"""
+
+    def get_api_url(self):
+        """Returns the configured Argus API base URL"""
+        return self.get("api", "url")
+
+    def get_api_token(self):
+        """Returns the configured Argus API access token"""
+        return self.get("api", "token")
 
 
 if __name__ == "__main__":
