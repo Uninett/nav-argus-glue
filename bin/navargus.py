@@ -26,6 +26,7 @@ import os
 import fcntl
 import re
 import logging
+import argparse
 from datetime import datetime
 from json import JSONDecoder, JSONDecodeError
 from typing import Generator, Any
@@ -59,6 +60,25 @@ def main():
     init_stderr_logging()
     _config = NAVArgusConfig()
 
+    parser = parse_args()
+    read_eventengine_stream()
+
+
+def parse_args():
+    """Builds an ArgumentParser and returns parsed program arguments"""
+    parser = argparse.ArgumentParser(
+        description="Synchronizes NAV alerts with an Argus alert aggregating server",
+        usage="%(prog)s [options]",
+        epilog="This program is designed to be run as an export script by NAV's event "
+        "engine. See eventengine.conf for details.",
+    )
+    return parser.parse_args()
+
+
+def read_eventengine_stream():
+    """Reads a continuous stream of eventengine JSON blobs on stdin and updates the
+    connected Argus server based on this.
+    """
     # Ensure we do non-blocking reads from stdin, as we don't wont to get stuck when
     # we receive blobs that are smaller than the set buffer size
     fd = sys.stdin.fileno()
