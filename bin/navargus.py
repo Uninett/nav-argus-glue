@@ -61,7 +61,10 @@ def main():
     _config = NAVArgusConfig()
 
     parser = parse_args()
-    read_eventengine_stream()
+    if parser.test_api:
+        test_argus_api()
+    else:
+        read_eventengine_stream()
 
 
 def parse_args():
@@ -71,6 +74,9 @@ def parse_args():
         usage="%(prog)s [options]",
         epilog="This program is designed to be run as an export script by NAV's event "
         "engine. See eventengine.conf for details.",
+    )
+    parser.add_argument(
+        "--test-api", action="store_true", help="Tests Argus API access"
     )
     return parser.parse_args()
 
@@ -236,6 +242,16 @@ def get_argus_client():
             api_root_url=_config.get_api_url(), token=_config.get_api_token()
         )
     return _client
+
+
+def test_argus_api():
+    """Tests access to the Argus API by fetching all open incidents"""
+    client = get_argus_client()
+    incidents = client.get_incidents(open=True)
+    next(incidents, None)
+    print(
+        "Argus API is accessible at {}".format(client.api.api_root_url), file=sys.stderr
+    )
 
 
 class NAVArgusConfig(NAVConfigParser):
