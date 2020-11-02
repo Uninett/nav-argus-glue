@@ -28,7 +28,7 @@ import re
 import logging
 import argparse
 from json import JSONDecoder, JSONDecodeError
-from typing import Generator
+from typing import Generator, Tuple, List
 
 from django.urls import reverse
 from pyargus.client import Client
@@ -292,6 +292,32 @@ def test_argus_api():
 
 def sync_report():
     """Prints a short report on which alerts and incidents aren't synced"""
+    missed_resolve, missed_open = get_unsynced_report()
+
+    if missed_resolve:
+        caption = "These incidents are resolved in NAV, but not in Argus"
+        print(caption + "\n" + "=" * len(caption))
+        for incident in missed_resolve:
+            print(describe_incident(incident))
+        if missed_open:
+            print()
+
+    if missed_open:
+        caption = "These incidents are open in NAV, but are missing from Argus"
+        print(caption + "\n" + "=" * len(caption))
+        for alert in missed_open:
+            print(describe_alerthist(alert))
+
+
+def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
+    """Returns a report of which NAV AlertHistory objects and Argus Incidents objects
+    are unsynced.
+
+    :returns: A two-tuple (incidents, alerts). The first list identifies Argus
+              incidents that should have been resolved, but aren't. The second list
+              identifies unresolved NAV AlertHistory objects that have no corresponding
+              Incident in Argus at all.
+    """
     client = get_argus_client()
     nav_alerts = {
         a.pk: a for a in AlertHistory.objects.unresolved().prefetch_related("messages")
@@ -303,19 +329,10 @@ def sync_report():
     missed_resolve = set(argus_incidents).difference(nav_alerts)
     missed_open = set(nav_alerts).difference(argus_incidents)
 
-    if missed_resolve:
-        caption = "These incidents are resolved in NAV, but not in Argus"
-        print(caption + "\n" + "=" * len(caption))
-        for pk in missed_resolve:
-            print(describe_incident(argus_incidents[pk]))
-        if missed_open:
-            print()
-
-    if missed_open:
-        caption = "These incidents are open in NAV, but are missing from Argus"
-        print(caption + "\n" + "=" * len(caption))
-        for pk in missed_open:
-            print(describe_alerthist(nav_alerts[pk]))
+    return (
+        [argus_incidents[i] for i in missed_resolve],
+        [nav_alerts[i] for i in missed_open],
+    )
 
 
 def describe_alerthist(alerthist: AlertHistory):
