@@ -27,21 +27,20 @@ import fcntl
 import re
 import logging
 import argparse
-from datetime import datetime
 from json import JSONDecoder, JSONDecodeError
-from typing import Generator, Any
+from typing import Generator
 
-from django.core.exceptions import ObjectDoesNotExist
 from django.urls import reverse
 from pyargus.client import Client
 from pyargus.models import Incident
 
 from nav.bootstrap import bootstrap_django
+from nav.models.fields import INFINITY
 
 bootstrap_django("navargus")
 
 from nav.models.manage import Netbox, Interface
-from nav.models.event import AlertHistory
+from nav.models.event import AlertHistory, STATE_START, STATE_STATELESS, STATE_END
 from nav.logs import init_stderr_logging
 from nav.config import NAVConfigParser
 
@@ -50,10 +49,6 @@ _logger = logging.getLogger("navargus")
 _client = None
 _config = None
 NOT_WHITESPACE = re.compile(r"[^\s]")
-STATE_START = "s"
-STATE_END = "e"
-STATE_STATELESS = "x"
-INFINITY = datetime.max
 
 
 def main():
@@ -151,66 +146,93 @@ def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
 
 
 def dispatch_alert_to_argus(alert: dict):
-    """Dispatches an alert structure to an Argus instance via its REST API"""
-    state = alert.get("state")
-    if state in (STATE_START, STATE_STATELESS):
-        incident = convert_to_argus_incident(alert)
-        post_incident_to_argus(incident)
-    else:
-        resolve_argus_incident(alert)
+    """Dispatches an alert structure to an Argus instance via its REST API
 
-
-def convert_to_argus_incident(alert: dict) -> Incident:
+    :param alert: A deserialized JSON blob received from event engine
     """
-    :param alert: A JSON-serialized AlertQueue instance from NAV, in the form of a dict
+    alerthistid = alert.get("history")
+    if alerthistid:
+        # We don't care about most of the contents of the JSON blob we received,
+        # actually, since we can fetch what we want and more directly from the NAV
+        # database
+        try:
+            alerthist = AlertHistory.objects.get(pk=alerthistid)
+        except AlertHistory.DoesNotExist:
+            _logger.error(
+                "Ignoring invalid alerthist PK received from event engine: %r",
+                alerthistid,
+            )
+            return
+
+        state = alert.get("state")
+        if state in (STATE_START, STATE_STATELESS):
+            incident = convert_alerthistory_object_to_argus_incident(alerthist)
+            post_incident_to_argus(incident)
+        else:
+            # when resolving, the AlertHistory timestamp may not have been updated yet
+            timestamp = alert.get("time")
+            resolve_argus_incident(alerthist, timestamp)
+
+
+def convert_alerthistory_object_to_argus_incident(alert: AlertHistory) -> Incident:
+    """Converts an unresolved AlertHistory object from NAV to a Argus Incident.
+
+    :param alert: A NAV AlertHistory object
     :returns: An object describing an Argus Incident, suitable for POSTing to its API.
     """
-    state = alert.get("state", STATE_STATELESS)
-    url = (
-        reverse("event-details", args=(alert.get("history"),))
-        if alert.get("history")
-        else None
-    )
+    url = reverse("event-details", args=(alert.pk,))
 
     incident = Incident(
-        start_time=alert.get("time"),
-        end_time=INFINITY if state == STATE_START else None,
-        source_incident_id=alert.get("history"),
-        details_url=url if url else alert.get("alert_details_url"),
-        description=alert.get("message"),
+        start_time=alert.start_time,
+        end_time=alert.end_time,
+        source_incident_id=alert.pk,
+        details_url=url if url else "",
+        description=get_short_start_description(alert),
         tags=dict(build_tags_from(alert)),
     )
-
     return incident
 
 
-def build_tags_from(alert: dict) -> Generator:
+def get_short_start_description(alerthist: AlertHistory):
+    """Describes an AlertHistory object via its shortest, english-language start
+    message (or stateless message, in the case of stateless alerts)
+    """
+    msgs = alerthist.messages.filter(
+        type="sms", state__in=(STATE_START, STATE_STATELESS), language="en"
+    )
+    return msgs[0].message if msgs else ""
+
+
+def get_short_end_description(alerthist: AlertHistory):
+    """Describes an AlertHistory object via its shortest, english-language end
+    message.
+    """
+    msgs = alerthist.messages.filter(type="sms", state=STATE_END, language="en")
+    return msgs[0].message if msgs else ""
+
+
+def build_tags_from(alert: AlertHistory) -> Generator:
     """
     Generates a series of tag tuples
-    :param alert: A JSON-serialized AlertQueue instance from NAV, in the form of a dict
+    :param alert: An AlertHistory object from NAV
     :returns: A generator of (tag_name, tag_value) tuples, suitable to make a tag
               dictionary for an Argus incident.
     """
-    yield "event_type", alert.get("event_type", {}).get("id")
-    yield "alert_type", alert.get("alert_type", {}).get("name")
-    subject_type = alert.get("subject_type")
-
-    # The JSON blob provided by eventengine does not drill deep into the data model,
-    # so we will need to look up certain data from NAV itself to produce an accurate
-    # set of tags:
+    yield "event_type", alert.event_type_id
+    if alert.alert_type:
+        yield "alert_type", alert.alert_type.name
+    subject = alert.get_subject()
     # TODO: Find a sane convention for translating various event subjects to tags, such
     #       as power supplies, modules etc.
 
-    if alert.get("netbox"):
-        netbox = Netbox.objects.get(pk=alert.get("netbox"))
-        yield "host", netbox.sysname
-        yield "room", netbox.room.id
-        yield "location", netbox.room.location.id
-    if subject_type == "Netbox":
-        yield "host_url", alert.get("subject_url")
-    elif subject_type == "Interface":
-        interface = Interface.objects.get(pk=alert.get("subid"))
-        yield "interface", interface.ifname
+    if alert.netbox:
+        yield "host", alert.netbox.sysname
+        yield "room", alert.netbox.room.id
+        yield "location", alert.netbox.room.location.id
+    if isinstance(subject, Netbox):
+        yield "host_url", subject.get_absolute_url()
+    elif isinstance(subject, Interface):
+        yield "interface", subject.ifname
 
 
 def post_incident_to_argus(incident: Incident) -> int:
@@ -221,25 +243,28 @@ def post_incident_to_argus(incident: Incident) -> int:
         return incident_response.pk
 
 
-def resolve_argus_incident(alert: dict):
-    """Looks up and resolves an existing incident in Argus based on the supplied
-    end-state alert.
-    """
-    nav_alert_id = alert.get("history")
-    if not nav_alert_id:
-        return
+def resolve_argus_incident(alert: AlertHistory, timestamp=None):
+    """Looks up the mirror Incident of alert in Argus and marks it as resolved.
 
+    :param alert: The NAV AlertHistory object used to find the Argus Incident.
+    :param timestamp: The optional timestamp of the ending event. Because of the way
+                      event engine works, the AlertHistory record may actually not have
+                      been updated yet at the time the ending event is exported into
+                      this program.
+    """
     client = get_argus_client()
     incident = next(
-        client.get_my_incidents(open=True, source_incident_id=nav_alert_id), None,
+        client.get_my_incidents(open=True, source_incident_id=alert.pk), None
     )
     if incident:
         if incident.end_time != INFINITY:
             _logger.error("Cannot resolve a stateless incident")
             return
-
+        _logger.debug("Resolving with an end_time of %r", timestamp or alert.end_time)
         client.resolve_incident(
-            incident, description=alert.get("message"), timestamp=alert.get("time")
+            incident,
+            description=get_short_end_description(alert),
+            timestamp=timestamp or alert.end_time,
         )
     else:
         _logger.warning("Couldn't find corresponding Argus Incident to resolve")
@@ -295,11 +320,10 @@ def sync_report():
 
 def describe_alerthist(alerthist: AlertHistory):
     """Describes an alerthist object for tabulated output to stdout"""
-    msgs = alerthist.messages.filter(type="sms", state=STATE_START, language="en")
-    msg = msgs[0].message if msgs else "N/A"
-
     return "{pk}\t{timestamp}\t{msg}".format(
-        pk=alerthist.pk, timestamp=alerthist.start_time, msg=msg
+        pk=alerthist.pk,
+        timestamp=alerthist.start_time,
+        msg=get_short_start_description(alerthist) or "N/A",
     )
 
 
