@@ -62,6 +62,8 @@ def main():
         test_argus_api()
     elif parser.sync_report:
         sync_report()
+    elif parser.sync:
+        do_sync()
     else:
         read_eventengine_stream()
 
@@ -83,6 +85,11 @@ def parse_args():
         action="store_true",
         help="Prints a short report on NAV Alerts and Argus Incidents that aren't "
         "properly synced",
+    )
+    runtime_modes.add_argument(
+        "--sync",
+        action="store_true",
+        help="Synchronizes existing NAV Alerts and Argus Incidents",
     )
     return parser.parse_args()
 
@@ -288,6 +295,43 @@ def test_argus_api():
     print(
         "Argus API is accessible at {}".format(client.api.api_root_url), file=sys.stderr
     )
+
+
+def do_sync():
+    """Synchronizes Argus with NAV alerts.
+
+    Unresolved NAV alerts that don't exist as Incidents in Argus are created there,
+    unresolved Argus Incidents that are resolved in NAV will be resolved in Argus.
+    """
+    unresolved_argus_incidents, new_nav_alerts = get_unsynced_report()
+
+    for alert in new_nav_alerts:
+        incident = convert_alerthistory_object_to_argus_incident(alert)
+        _logger.debug(
+            "Posting to Argus: %s", describe_alerthist(alert).replace("\t", " ")
+        )
+        post_incident_to_argus(incident)
+
+    client = get_argus_client()
+    for incident in unresolved_argus_incidents:
+        try:
+            alert = AlertHistory.objects.get(pk=incident.source_incident_id)
+        except AlertHistory.DoesNotExist:
+            _logger.error(
+                "Argus incident %r refers to non-existent NAV Alert: %s",
+                incident,
+                incident.source_incident_id,
+            )
+            continue
+        _logger.debug(
+            "Resolving Argus Incident: %s",
+            describe_incident(incident).replace("\t", " "),
+        )
+        client.resolve_incident(
+            incident,
+            description=get_short_end_description(alert),
+            timestamp=alert.end_time,
+        )
 
 
 def sync_report():
