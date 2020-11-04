@@ -1,0 +1,15 @@
+*.orig
+*.rej
+*.pyc
+*.swp
+*~
+.*
+*.bak
+*.iml # JetBrains (PyCharm/IDEA) project files
+.idea/*
+*.egg-info
+\#*
+
+# These directories conist of only generated files.
+/build
+/dist
