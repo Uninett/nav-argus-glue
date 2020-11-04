@@ -30,6 +30,8 @@ import argparse
 from json import JSONDecoder, JSONDecodeError
 from typing import Generator, Tuple, List
 
+import yaml
+
 from django.urls import reverse
 from pyargus.client import Client
 from pyargus.models import Incident
@@ -42,12 +44,12 @@ bootstrap_django("navargus")
 from nav.models.manage import Netbox, Interface
 from nav.models.event import AlertHistory, STATE_START, STATE_STATELESS, STATE_END
 from nav.logs import init_stderr_logging
-from nav.config import NAVConfigParser
+from nav.config import open_configfile
 
 
 _logger = logging.getLogger("navargus")
 _client = None
-_config = None
+_config = None  # type: Configuration
 NOT_WHITESPACE = re.compile(r"[^\s]")
 
 
@@ -55,7 +57,7 @@ def main():
     """Main execution point"""
     global _config
     init_stderr_logging()
-    _config = NAVArgusConfig()
+    _config = Configuration()
 
     parser = parse_args()
     if parser.test_api:
@@ -397,21 +399,28 @@ def describe_incident(incident: Incident):
     )
 
 
-class NAVArgusConfig(NAVConfigParser):
-    """Config file definition for NAVArgus glue service"""
+class Configuration(dict):
+    CONFIG_FILE = "navargus.yml"
 
-    DEFAULT_CONFIG_FILES = ("navargus.conf",)
-    DEFAULT_CONFIG = """
-[api]
-"""
+    def __init__(self):
+        super().__init__()
+        self.load_config()
+
+    def load_config(self):
+        try:
+            with open_configfile(self.CONFIG_FILE) as ymldata:
+                cfg = yaml.safe_load(ymldata)
+                self.update(cfg)
+        except OSError:
+            _logger.info("No configuration file found: %s", self.CONFIG_FILE)
 
     def get_api_url(self):
         """Returns the configured Argus API base URL"""
-        return self.get("api", "url")
+        return self.get("api", {}).get("url")
 
     def get_api_token(self):
         """Returns the configured Argus API access token"""
-        return self.get("api", "token")
+        return self.get("api", {}).get("token")
 
 
 if __name__ == "__main__":
