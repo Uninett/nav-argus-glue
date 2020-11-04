@@ -37,7 +37,7 @@ and the API token you generated to be able to talk to the Argus API. An example:
 ---
 api:
     url: https://argus.example.com/api/v1
-	token: very-long-and-secret-string
+    token: very-long-and-secret-string
 ```
 
 You can now test whether `navargus` is able to read this configuration and
