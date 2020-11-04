@@ -1,0 +1,21 @@
+---
+# Example configuration file for navargus
+api:
+  # The API url and token settings are the minimal required config settings to
+  # access an Argus API server:
+  url: https://argus.example.org/api/v1
+  token: very-long-and-secret-string
+
+  # If set to true, this ensures state differences between NAV alerts and Argus
+  # Incidents are synchronized before navargus begins reading new alerts from
+  # stdin
+  sync-on-startup: true
+
+# Tag directives
+tags:
+  # This option allows you to tag all incidents from this navargus instance
+  # with a specific set of tags
+  always-add:
+    tag1: value1
+    customer: example.org
+    service: CNaaS

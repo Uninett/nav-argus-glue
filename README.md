@@ -42,3 +42,5 @@ api:
 
 You can now test whether `navargus` is able to read this configuration and
 actually talk to the API using the command `navargus --test-api`.
+
+See the `navargus.example.yml` file for more configuration examples.
