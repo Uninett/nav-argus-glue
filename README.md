@@ -3,7 +3,7 @@ NAV <-> Argus glue service
 
 This is a glue service for integration between
 [Argus](https://github.com/Uninett/Argus), the alert aggregation server, and
-[NAV](https://github.com/Uninett/nav) (Network Administration Visuzalied), the
+[NAV](https://github.com/Uninett/nav) (Network Administration Visualized), the
 network monitoring software suite provided by Uninett.
 
 How it works
