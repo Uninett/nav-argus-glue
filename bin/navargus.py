@@ -67,6 +67,8 @@ def main():
     elif parser.sync:
         do_sync()
     else:
+        if _config.get_sync_on_startup():
+            do_sync()
         read_eventengine_stream()
 
 
@@ -424,6 +426,10 @@ class Configuration(dict):
     def get_api_token(self):
         """Returns the configured Argus API access token"""
         return self.get("api", {}).get("token")
+
+    def get_sync_on_startup(self):
+        """Returns True if this program should always sync the Argus API on startup"""
+        return bool(self.get("api", {}).get("sync-on-startup"))
 
     def get_always_add_tags(self):
         """Returns a set of tags to add to all incidents"""
