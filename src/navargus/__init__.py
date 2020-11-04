@@ -32,7 +32,6 @@ from typing import Generator, Tuple, List
 
 import yaml
 
-from django.urls import reverse
 from pyargus.client import Client
 from pyargus.models import Incident
 
@@ -45,6 +44,8 @@ from nav.models.manage import Netbox, Interface
 from nav.models.event import AlertHistory, STATE_START, STATE_STATELESS, STATE_END
 from nav.logs import init_stderr_logging
 from nav.config import open_configfile
+
+from django.urls import reverse
 
 
 _logger = logging.getLogger("navargus")
