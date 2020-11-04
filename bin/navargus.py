@@ -243,6 +243,9 @@ def build_tags_from(alert: AlertHistory) -> Generator:
     elif isinstance(subject, Interface):
         yield "interface", subject.ifname
 
+    for tag, value in _config.get_always_add_tags().items():
+        yield tag, value
+
 
 def post_incident_to_argus(incident: Incident) -> int:
     """Posts an incident payload to an Argus API instance"""
@@ -421,6 +424,10 @@ class Configuration(dict):
     def get_api_token(self):
         """Returns the configured Argus API access token"""
         return self.get("api", {}).get("token")
+
+    def get_always_add_tags(self):
+        """Returns a set of tags to add to all incidents"""
+        return self.get("tags", {}).get("always-add", {})
 
 
 if __name__ == "__main__":
