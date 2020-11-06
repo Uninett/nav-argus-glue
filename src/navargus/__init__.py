@@ -314,10 +314,19 @@ def do_sync():
     unresolved_argus_incidents, new_nav_alerts = get_unsynced_report()
 
     for alert in new_nav_alerts:
+        description = describe_alerthist(alert).replace("\t", " ")
+        incident = verify_incident_exists(alert.pk)
+        if incident:
+            _logger.warning(
+                "Argus incident %s already exists for this NAV alert, with end_time "
+                "set to %r, ignoring: %s",
+                incident.pk,
+                incident.end_time,
+                description,
+            )
+            continue
         incident = convert_alerthistory_object_to_argus_incident(alert)
-        _logger.debug(
-            "Posting to Argus: %s", describe_alerthist(alert).replace("\t", " ")
-        )
+        _logger.debug("Posting to Argus: %s", description)
         post_incident_to_argus(incident)
 
     client = get_argus_client()
@@ -340,6 +349,19 @@ def do_sync():
             description=get_short_end_description(alert),
             timestamp=alert.end_time,
         )
+
+
+def verify_incident_exists(alerthistid: int) -> [Incident, None]:
+    """Verifies whether a given NAV Alert has a corresponding Argus Incident,
+    regardless of whether its resolved or not.  If an Incident is found, and Incident
+    object is returned for inspection.
+    """
+    client = get_argus_client()
+    try:
+        incident = next(client.get_my_incidents(source_incident_id=alerthistid))
+        return incident
+    except StopIteration:
+        return None
 
 
 def sync_report():
