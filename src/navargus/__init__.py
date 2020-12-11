@@ -27,6 +27,7 @@ import fcntl
 import re
 import logging
 import argparse
+import time
 from json import JSONDecoder, JSONDecodeError
 from typing import Generator, Tuple, List
 
@@ -170,11 +171,17 @@ def dispatch_alert_to_argus(alert: dict):
         try:
             alerthist = AlertHistory.objects.get(pk=alerthistid)
         except AlertHistory.DoesNotExist:
-            _logger.error(
-                "Ignoring invalid alerthist PK received from event engine: %r",
-                alerthistid,
-            )
-            return
+            # Workaround for eventengine bug: Its transaction is potentially not
+            # committed yet, so we wait just a little bit:
+            time.sleep(1)
+            try:
+                alerthist = AlertHistory.objects.get(pk=alerthistid)
+            except AlertHistory.DoesNotExist:
+                _logger.error(
+                    "Ignoring invalid alerthist PK received from event engine: %r",
+                    alerthistid,
+                )
+                return
 
         state = alert.get("state")
         if state in (STATE_START, STATE_STATELESS):
