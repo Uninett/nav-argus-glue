@@ -9,13 +9,11 @@ network monitoring software suite provided by Uninett.
 How it works
 ============
 
-`navargus` acts as a NAV event engine export script. It accepts stacked,
-JSON-serialized alert objects on its STDIN. When configured as the export
-script in
-[eventengine.conf](https://github.com/Uninett/nav/blob/0059f49ec36754fedcb385ecc50767729accbe7d/python/nav/etc/eventengine.conf#L2-L5),
-the event engine will feed `navargus` a continuous stream of NAV alerts as they
-are generated. Then `navargus` will use these alerts to either create new
-incidents in the Argus API, or resolve existing ones as needed.
+`navargus` acts as an export script in the NAV event engine. It accepts
+stacked, JSON-serialized alert objects on its STDIN.
+The event engine will feed `navargus` a continuous stream of NAV alerts as they
+are generated. `navargus` uses these alerts to either create new incidents in
+the Argus API, or resolve existing ones as needed.
 
 Refer to the Argus server documentation to learn more about [integrating monitoring 
 systems](https://argus-server.readthedocs.io/en/latest/integrating-monitoring-systems.html)
@@ -24,17 +22,34 @@ with Argus.
 Configuration
 =============
 
+NAV
+---
+Add `navargus` in the `[export]` section of the `eventengine.conf` file.
+
+```aconf
+[export]
+# If set, the script option will point to a program that will receive a
+# continuous stream of JSON serialized alert objects on its STDIN.
+script = /path/to/navargus
+```
+
+Argus
+-----
+In the Argus admin interface, create a new "Source system" for your
+NAV instance. This will automatically create an Argus user account for
+this instance. Now, use the Argus admin interface to create an authentication
+token for your user.
+
+NAV-Argus glue service
+----------------------
 `navargus` is configured via `navargus.yml`. Since `navargus` is designed to
 run in conjunction with NAV's event engine, this config file must be placed in
 NAV's config directory (typically `/etc/nav`).
 
-In the Argus admin interface, create a new "Source system" for your
-NAV instance. This will automatically create an Argus user account for
-this specific instance. Now, use the Argus admin interface to create an
-authentication token for your user.
+A minimal `navargus.yml` contains the base URL of your Argus server and the
+Argus API token generated above.
 
-`navargus.yml` must at minimum contain the base URL of your Argus API server
-and the API token you generated to be able to talk to the Argus API. An example:
+An example:
 
 ```yml
 ---
@@ -43,11 +58,13 @@ api:
     token: very-long-and-secret-string
 ```
 
-Additionally, configuration file holds a list of tags that `navargus` will add
-to all incidents created by this NAV instance.
+The configuration file may optionally contain a list of tags.
+These tags will be added to all incidents created by this NAV instance.
+To learn more about tags, refer to
+[Argus documentation](https://argus-server.readthedocs.io/).
 
-See the [navargus.example.yml](navargus.example.yml) file for a full
-configuration example.
+A full configuration file example is provided in
+[navargus.example.yml](navargus.example.yml).
 
-Use the command `navargus --test-api` to check whether `navargus` is able to read
-this configuration and query the Argus API.
+Now, you can run the command `navargus --test-api` to check whether the glue
+service is properly configured and able to query the Argus API.
