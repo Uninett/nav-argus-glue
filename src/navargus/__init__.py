@@ -248,6 +248,7 @@ def build_tags_from(alert: AlertHistory) -> Generator:
         yield "host", alert.netbox.sysname
         yield "room", alert.netbox.room.id
         yield "location", alert.netbox.room.location.id
+        yield "organization", alert.netbox.organization.id
     if isinstance(subject, Netbox):
         yield "host_url", subject.get_absolute_url()
     elif isinstance(subject, Interface):
