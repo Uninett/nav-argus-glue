@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020 UNINETT
+# Copyright (C) 2020, 2021 UNINETT
 #
-# This file is part of Network Administration Visualized (NAV).
+# This file is part of nav-argus-glue.
 #
-# NAV is free software: you can redistribute it and/or modify it under
+# nav-argus-glue is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License version 3 as published by
 # the Free Software Foundation.
 #
@@ -12,7 +12,7 @@
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
 # details.  You should have received a copy of the GNU General Public License
-# along with NAV. If not, see <http://www.gnu.org/licenses/>.
+# along with nav-argus-glue. If not, see <http://www.gnu.org/licenses/>.
 #
 """NAV Event Engine -> Argus Exporter - AKA Argus glue service for NAV.
 
