@@ -413,9 +413,10 @@ def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
               Incident in Argus at all.
     """
     client = get_argus_client()
-    nav_alerts = {
-        a.pk: a for a in AlertHistory.objects.unresolved().prefetch_related("messages")
-    }
+    nav_alerts = AlertHistory.objects.unresolved().prefetch_related("messages")
+    if _config.get_ignore_maintenance():
+        nav_alerts = (a for a in nav_alerts if not was_on_maintenance(a))
+    nav_alerts = {a.pk: a for a in nav_alerts}
     argus_incidents = {
         int(i.source_incident_id): i for i in client.get_my_incidents(open=True)
     }
