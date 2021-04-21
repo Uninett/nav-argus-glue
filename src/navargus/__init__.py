@@ -28,6 +28,7 @@ import re
 import logging
 import argparse
 import time
+from datetime import datetime
 from json import JSONDecoder, JSONDecodeError
 from typing import Generator, Tuple, List
 
@@ -364,10 +365,11 @@ def do_sync():
             "Resolving Argus Incident: %s",
             describe_incident(incident).replace("\t", " "),
         )
+        resolve_time = alert.end_time if alert.end_time < INFINITY else datetime.now()
         client.resolve_incident(
             incident,
             description=get_short_end_description(alert),
-            timestamp=alert.end_time,
+            timestamp=resolve_time,
         )
 
 
