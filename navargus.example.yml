@@ -19,3 +19,8 @@ tags:
     tag1: value1
     customer: example.org
     service: CNaaS
+
+filters:
+  # This options ensures no incidents are posted where the alert subject is on
+  # maintenance
+  ignore-maintenance: true

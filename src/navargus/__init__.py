@@ -466,6 +466,10 @@ class Configuration(dict):
         """Returns a set of tags to add to all incidents"""
         return self.get("tags", {}).get("always-add", {})
 
+    def get_ignore_maintenance(self):
+        """Returns the value of the maintenance filter option"""
+        return self.get("filters", {}).get("ignore-maintenance", True)
+
 
 if __name__ == "__main__":
     main()
