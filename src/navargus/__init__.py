@@ -42,11 +42,13 @@ from nav.models.fields import INFINITY
 bootstrap_django("navargus")
 
 from nav.models.manage import Netbox, Interface
+from nav.models.service import Service
 from nav.models.event import AlertHistory, STATE_START, STATE_STATELESS, STATE_END
 from nav.logs import init_stderr_logging
 from nav.config import open_configfile
 
 from django.urls import reverse
+from django.db.models import Q
 
 
 _logger = logging.getLogger("navargus")
@@ -425,6 +427,42 @@ def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
         [argus_incidents[i] for i in missed_resolve],
         [nav_alerts[i] for i in missed_open],
     )
+
+
+def was_on_maintenance(alert: AlertHistory):
+    """Returns True if the subject of the alert appeared to be on maintenance at the
+    time the alert was issued.
+
+    The NAV libraries contain API calls to evaluate whether an alert subject is
+    currently on maintenance. However, it doesn't currently have the ability to
+    easily evaluate whether something was on maintenance at a particular point in
+    time. This becomes important to nav-argus-glue when syncing potentially old
+    alerts from the NAV alert history to Argus (NAV 5.1 at the time of this writing)
+    - hence, this function exists.
+    """
+    on_maintenance = False
+    maintenances = AlertHistory.objects.filter(
+        event_type="maintenanceState",
+        netbox=alert.netbox,
+        start_time__lte=alert.start_time,
+        end_time__gte=alert.start_time,
+    )
+    subject = alert.get_subject()
+    if isinstance(subject, Service):
+        on_maintenance = maintenances.filter(subid=str(subject.id)).count() > 0
+    if not on_maintenance:
+        # if service wasn't explicitly on service, check whether the netbox itself was
+        on_maintenance = maintenances.filter(subid="").count() > 0
+
+    if on_maintenance:
+        _logger.debug(
+            "%s was on maintenance when the alert took place: %s",
+            subject,
+            describe_alerthist(alert),
+        )
+        return True
+    else:
+        return False
 
 
 def describe_alerthist(alerthist: AlertHistory):
