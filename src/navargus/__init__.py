@@ -28,6 +28,7 @@ import re
 import logging
 import argparse
 import time
+from datetime import datetime
 from json import JSONDecoder, JSONDecodeError
 from typing import Generator, Tuple, List
 
@@ -42,11 +43,13 @@ from nav.models.fields import INFINITY
 bootstrap_django("navargus")
 
 from nav.models.manage import Netbox, Interface
+from nav.models.service import Service
 from nav.models.event import AlertHistory, STATE_START, STATE_STATELESS, STATE_END
 from nav.logs import init_stderr_logging
 from nav.config import open_configfile
 
 from django.urls import reverse
+from django.db.models import Q
 
 
 _logger = logging.getLogger("navargus")
@@ -164,7 +167,17 @@ def dispatch_alert_to_argus(alert: dict):
     :param alert: A deserialized JSON blob received from event engine
     """
     alerthistid = alert.get("history")
+    on_maintenance = (
+        bool(alert.get("on_maintenance"))
+        or alert.get("event_type", {}).get("id") == "maintenanceState"
+    )
     if alerthistid:
+        if _config.get_ignore_maintenance() and on_maintenance:
+            _logger.info(
+                "Not posting incident as alert subject is on maintenance: %s",
+                alert.get("message"),
+            )
+            return
         # We don't care about most of the contents of the JSON blob we received,
         # actually, since we can fetch what we want and more directly from the NAV
         # database
@@ -352,10 +365,11 @@ def do_sync():
             "Resolving Argus Incident: %s",
             describe_incident(incident).replace("\t", " "),
         )
+        resolve_time = alert.end_time if alert.end_time < INFINITY else datetime.now()
         client.resolve_incident(
             incident,
             description=get_short_end_description(alert),
-            timestamp=alert.end_time,
+            timestamp=resolve_time,
         )
 
 
@@ -401,9 +415,10 @@ def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
               Incident in Argus at all.
     """
     client = get_argus_client()
-    nav_alerts = {
-        a.pk: a for a in AlertHistory.objects.unresolved().prefetch_related("messages")
-    }
+    nav_alerts = AlertHistory.objects.unresolved().prefetch_related("messages")
+    if _config.get_ignore_maintenance():
+        nav_alerts = (a for a in nav_alerts if not was_on_maintenance(a))
+    nav_alerts = {a.pk: a for a in nav_alerts}
     argus_incidents = {
         int(i.source_incident_id): i for i in client.get_my_incidents(open=True)
     }
@@ -415,6 +430,42 @@ def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
         [argus_incidents[i] for i in missed_resolve],
         [nav_alerts[i] for i in missed_open],
     )
+
+
+def was_on_maintenance(alert: AlertHistory):
+    """Returns True if the subject of the alert appeared to be on maintenance at the
+    time the alert was issued.
+
+    The NAV libraries contain API calls to evaluate whether an alert subject is
+    currently on maintenance. However, it doesn't currently have the ability to
+    easily evaluate whether something was on maintenance at a particular point in
+    time. This becomes important to nav-argus-glue when syncing potentially old
+    alerts from the NAV alert history to Argus (NAV 5.1 at the time of this writing)
+    - hence, this function exists.
+    """
+    on_maintenance = False
+    maintenances = AlertHistory.objects.filter(
+        event_type="maintenanceState",
+        netbox=alert.netbox,
+        start_time__lte=alert.start_time,
+        end_time__gte=alert.start_time,
+    )
+    subject = alert.get_subject()
+    if isinstance(subject, Service):
+        on_maintenance = maintenances.filter(subid=str(subject.id)).count() > 0
+    if not on_maintenance:
+        # if service wasn't explicitly on service, check whether the netbox itself was
+        on_maintenance = maintenances.filter(subid="").count() > 0
+
+    if on_maintenance:
+        _logger.debug(
+            "%s was on maintenance when the alert took place: %s",
+            subject,
+            describe_alerthist(alert),
+        )
+        return True
+    else:
+        return False
 
 
 def describe_alerthist(alerthist: AlertHistory):
@@ -465,6 +516,10 @@ class Configuration(dict):
     def get_always_add_tags(self):
         """Returns a set of tags to add to all incidents"""
         return self.get("tags", {}).get("always-add", {})
+
+    def get_ignore_maintenance(self):
+        """Returns the value of the maintenance filter option"""
+        return self.get("filters", {}).get("ignore-maintenance", True)
 
 
 if __name__ == "__main__":
