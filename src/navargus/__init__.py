@@ -164,7 +164,17 @@ def dispatch_alert_to_argus(alert: dict):
     :param alert: A deserialized JSON blob received from event engine
     """
     alerthistid = alert.get("history")
+    on_maintenance = (
+        bool(alert.get("on_maintenance"))
+        or alert.get("event_type", {}).get("id") == "maintenanceState"
+    )
     if alerthistid:
+        if _config.get_ignore_maintenance() and on_maintenance:
+            _logger.info(
+                "Not posting incident as alert subject is on maintenance: %s",
+                alert.get("message"),
+            )
+            return
         # We don't care about most of the contents of the JSON blob we received,
         # actually, since we can fetch what we want and more directly from the NAV
         # database
