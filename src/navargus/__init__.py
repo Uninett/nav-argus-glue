@@ -220,9 +220,19 @@ def convert_alerthistory_object_to_argus_incident(alert: AlertHistory) -> Incide
         source_incident_id=alert.pk,
         details_url=url if url else "",
         description=get_short_start_description(alert),
+        level=convert_severity_to_level(alert.severity),
         tags=dict(build_tags_from(alert)),
     )
     return incident
+
+
+def convert_severity_to_level(severity: int) -> int:
+    """Converts a NAV severity level into an Argus Incident level.
+
+    ATM, NAV severities are poorly defined, so this just falls back to the default
+    level as set in the config file
+    """
+    return _config.get_default_level()
 
 
 def get_short_start_description(alerthist: AlertHistory):
@@ -512,6 +522,9 @@ class Configuration(dict):
     def get_sync_on_startup(self):
         """Returns True if this program should always sync the Argus API on startup"""
         return bool(self.get("api", {}).get("sync-on-startup"))
+
+    def get_default_level(self) -> int:
+        return int(self.get("api", {}).get("default-level", 3))
 
     def get_always_add_tags(self):
         """Returns a set of tags to add to all incidents"""
