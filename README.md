@@ -1,13 +1,11 @@
-NAV <-> Argus glue service
-==========================
+# NAV <-> Argus glue service
 
 This is a glue service for integration between
 [Argus](https://github.com/Uninett/Argus), the alert aggregation server, and
 [NAV](https://github.com/Uninett/nav) (Network Administration Visualized), the
 network monitoring software suite provided by Uninett.
 
-How it works
-============
+## How it works
 
 `navargus` acts as a NAV event engine export script, accepting stacked,
 JSON-serialized alert objects on its STDIN. When configured as the export
@@ -18,8 +16,7 @@ are generated, and `navargus` will use these to either create new incidents in
 the Argus API, or resolve existing ones as needed.
 
 
-Configuration
-=============
+## Configuration
 
 `navargus` is configured via `navargus.yml`. Since `navargus` is designed to
 run in conjunction with NAV's event engine, this config file must be placed in
@@ -44,3 +41,14 @@ You can now test whether `navargus` is able to read this configuration and
 actually talk to the API using the command `navargus --test-api`.
 
 See the `navargus.example.yml` file for more configuration examples.
+
+## Code style
+
+This module uses Black as a source code formatter for Python code.
+
+A pre-commit hook will format new code automatically before committing.
+To enable this pre-commit hook, run
+
+```console
+$ pre-commit install
+```

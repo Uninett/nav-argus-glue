@@ -11,6 +11,9 @@ api:
   # stdin
   sync-on-startup: true
 
+  # The default severity level value to use if none can be determined from NAV
+  default-level: 3
+
 # Tag directives
 tags:
   # This option allows you to tag all incidents from this navargus instance
@@ -19,3 +22,8 @@ tags:
     tag1: value1
     customer: example.org
     service: CNaaS
+
+filters:
+  # This options ensures no incidents are posted where the alert subject is on
+  # maintenance
+  ignore-maintenance: true

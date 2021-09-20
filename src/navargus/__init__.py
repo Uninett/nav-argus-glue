@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020 UNINETT
+# Copyright (C) 2020, 2021 UNINETT
 #
-# This file is part of Network Administration Visualized (NAV).
+# This file is part of nav-argus-glue.
 #
-# NAV is free software: you can redistribute it and/or modify it under
+# nav-argus-glue is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License version 3 as published by
 # the Free Software Foundation.
 #
@@ -12,7 +12,7 @@
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
 # details.  You should have received a copy of the GNU General Public License
-# along with NAV. If not, see <http://www.gnu.org/licenses/>.
+# along with nav-argus-glue. If not, see <http://www.gnu.org/licenses/>.
 #
 """NAV Event Engine -> Argus Exporter - AKA Argus glue service for NAV.
 
@@ -27,6 +27,8 @@ import fcntl
 import re
 import logging
 import argparse
+import time
+from datetime import datetime
 from json import JSONDecoder, JSONDecodeError
 from typing import Generator, Tuple, List
 
@@ -41,11 +43,13 @@ from nav.models.fields import INFINITY
 bootstrap_django("navargus")
 
 from nav.models.manage import Netbox, Interface
+from nav.models.service import Service
 from nav.models.event import AlertHistory, STATE_START, STATE_STATELESS, STATE_END
 from nav.logs import init_stderr_logging
 from nav.config import open_configfile
 
 from django.urls import reverse
+from django.db.models import Q
 
 
 _logger = logging.getLogger("navargus")
@@ -163,18 +167,34 @@ def dispatch_alert_to_argus(alert: dict):
     :param alert: A deserialized JSON blob received from event engine
     """
     alerthistid = alert.get("history")
+    on_maintenance = (
+        bool(alert.get("on_maintenance"))
+        or alert.get("event_type", {}).get("id") == "maintenanceState"
+    )
     if alerthistid:
+        if _config.get_ignore_maintenance() and on_maintenance:
+            _logger.info(
+                "Not posting incident as alert subject is on maintenance: %s",
+                alert.get("message"),
+            )
+            return
         # We don't care about most of the contents of the JSON blob we received,
         # actually, since we can fetch what we want and more directly from the NAV
         # database
         try:
             alerthist = AlertHistory.objects.get(pk=alerthistid)
         except AlertHistory.DoesNotExist:
-            _logger.error(
-                "Ignoring invalid alerthist PK received from event engine: %r",
-                alerthistid,
-            )
-            return
+            # Workaround for eventengine bug: Its transaction is potentially not
+            # committed yet, so we wait just a little bit:
+            time.sleep(1)
+            try:
+                alerthist = AlertHistory.objects.get(pk=alerthistid)
+            except AlertHistory.DoesNotExist:
+                _logger.error(
+                    "Ignoring invalid alerthist PK received from event engine: %r",
+                    alerthistid,
+                )
+                return
 
         state = alert.get("state")
         if state in (STATE_START, STATE_STATELESS):
@@ -200,9 +220,19 @@ def convert_alerthistory_object_to_argus_incident(alert: AlertHistory) -> Incide
         source_incident_id=alert.pk,
         details_url=url if url else "",
         description=get_short_start_description(alert),
+        level=convert_severity_to_level(alert.severity),
         tags=dict(build_tags_from(alert)),
     )
     return incident
+
+
+def convert_severity_to_level(severity: int) -> int:
+    """Converts a NAV severity level into an Argus Incident level.
+
+    ATM, NAV severities are poorly defined, so this just falls back to the default
+    level as set in the config file
+    """
+    return _config.get_default_level()
 
 
 def get_short_start_description(alerthist: AlertHistory):
@@ -241,6 +271,7 @@ def build_tags_from(alert: AlertHistory) -> Generator:
         yield "host", alert.netbox.sysname
         yield "room", alert.netbox.room.id
         yield "location", alert.netbox.room.location.id
+        yield "organization", alert.netbox.organization.id
     if isinstance(subject, Netbox):
         yield "host_url", subject.get_absolute_url()
     elif isinstance(subject, Interface):
@@ -314,10 +345,19 @@ def do_sync():
     unresolved_argus_incidents, new_nav_alerts = get_unsynced_report()
 
     for alert in new_nav_alerts:
+        description = describe_alerthist(alert).replace("\t", " ")
+        incident = verify_incident_exists(alert.pk)
+        if incident:
+            _logger.warning(
+                "Argus incident %s already exists for this NAV alert, with end_time "
+                "set to %r, ignoring: %s",
+                incident.pk,
+                incident.end_time,
+                description,
+            )
+            continue
         incident = convert_alerthistory_object_to_argus_incident(alert)
-        _logger.debug(
-            "Posting to Argus: %s", describe_alerthist(alert).replace("\t", " ")
-        )
+        _logger.debug("Posting to Argus: %s", description)
         post_incident_to_argus(incident)
 
     client = get_argus_client()
@@ -335,11 +375,25 @@ def do_sync():
             "Resolving Argus Incident: %s",
             describe_incident(incident).replace("\t", " "),
         )
+        resolve_time = alert.end_time if alert.end_time < INFINITY else datetime.now()
         client.resolve_incident(
             incident,
             description=get_short_end_description(alert),
-            timestamp=alert.end_time,
+            timestamp=resolve_time,
         )
+
+
+def verify_incident_exists(alerthistid: int) -> [Incident, None]:
+    """Verifies whether a given NAV Alert has a corresponding Argus Incident,
+    regardless of whether its resolved or not.  If an Incident is found, and Incident
+    object is returned for inspection.
+    """
+    client = get_argus_client()
+    try:
+        incident = next(client.get_my_incidents(source_incident_id=alerthistid))
+        return incident
+    except StopIteration:
+        return None
 
 
 def sync_report():
@@ -371,9 +425,10 @@ def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
               Incident in Argus at all.
     """
     client = get_argus_client()
-    nav_alerts = {
-        a.pk: a for a in AlertHistory.objects.unresolved().prefetch_related("messages")
-    }
+    nav_alerts = AlertHistory.objects.unresolved().prefetch_related("messages")
+    if _config.get_ignore_maintenance():
+        nav_alerts = (a for a in nav_alerts if not was_on_maintenance(a))
+    nav_alerts = {a.pk: a for a in nav_alerts}
     argus_incidents = {
         int(i.source_incident_id): i for i in client.get_my_incidents(open=True)
     }
@@ -385,6 +440,42 @@ def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
         [argus_incidents[i] for i in missed_resolve],
         [nav_alerts[i] for i in missed_open],
     )
+
+
+def was_on_maintenance(alert: AlertHistory):
+    """Returns True if the subject of the alert appeared to be on maintenance at the
+    time the alert was issued.
+
+    The NAV libraries contain API calls to evaluate whether an alert subject is
+    currently on maintenance. However, it doesn't currently have the ability to
+    easily evaluate whether something was on maintenance at a particular point in
+    time. This becomes important to nav-argus-glue when syncing potentially old
+    alerts from the NAV alert history to Argus (NAV 5.1 at the time of this writing)
+    - hence, this function exists.
+    """
+    on_maintenance = False
+    maintenances = AlertHistory.objects.filter(
+        event_type="maintenanceState",
+        netbox=alert.netbox,
+        start_time__lte=alert.start_time,
+        end_time__gte=alert.start_time,
+    )
+    subject = alert.get_subject()
+    if isinstance(subject, Service):
+        on_maintenance = maintenances.filter(subid=str(subject.id)).count() > 0
+    if not on_maintenance:
+        # if service wasn't explicitly on service, check whether the netbox itself was
+        on_maintenance = maintenances.filter(subid="").count() > 0
+
+    if on_maintenance:
+        _logger.debug(
+            "%s was on maintenance when the alert took place: %s",
+            subject,
+            describe_alerthist(alert),
+        )
+        return True
+    else:
+        return False
 
 
 def describe_alerthist(alerthist: AlertHistory):
@@ -432,9 +523,16 @@ class Configuration(dict):
         """Returns True if this program should always sync the Argus API on startup"""
         return bool(self.get("api", {}).get("sync-on-startup"))
 
+    def get_default_level(self) -> int:
+        return int(self.get("api", {}).get("default-level", 3))
+
     def get_always_add_tags(self):
         """Returns a set of tags to add to all incidents"""
         return self.get("tags", {}).get("always-add", {})
+
+    def get_ignore_maintenance(self):
+        """Returns the value of the maintenance filter option"""
+        return self.get("filters", {}).get("ignore-maintenance", True)
 
 
 if __name__ == "__main__":
