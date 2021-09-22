@@ -377,7 +377,8 @@ def do_sync():
             "Resolving Argus Incident: %s",
             describe_incident(incident).replace("\t", " "),
         )
-        resolve_time = alert.end_time if alert.end_time < INFINITY else datetime.now()
+        has_resolved_time = alert.end_time < INFINITY if alert.end_time else False
+        resolve_time = alert.end_time if has_resolved_time else datetime.now()
         client.resolve_incident(
             incident,
             description=get_short_end_description(alert),
