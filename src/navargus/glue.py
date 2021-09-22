@@ -544,6 +544,10 @@ class Configuration(dict):
         """Returns the value of the maintenance filter option"""
         return self.get("filters", {}).get("ignore-maintenance", True)
 
+    def get_ignore_stateless(self):
+        """Returns the value of the stateless alert filter option"""
+        return self.get("filters", {}).get("ignore-stateless", False)
+
 
 if __name__ == "__main__":
     main()
