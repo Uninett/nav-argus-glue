@@ -210,6 +210,11 @@ def dispatch_alert_to_argus(alert: dict):
 
     state = alert.get("state")
     if state in (STATE_START, STATE_STATELESS):
+        if state == STATE_STATELESS and _config.get_ignore_stateless():
+            _logger.info(
+                "Ignoring stateless alert as configured to: %s", alert.get("message")
+            )
+            return
         incident = convert_alerthistory_object_to_argus_incident(alerthist)
         post_incident_to_argus(incident)
     else:
