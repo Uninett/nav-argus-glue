@@ -181,39 +181,41 @@ def dispatch_alert_to_argus(alert: dict):
         bool(alert.get("on_maintenance"))
         or alert.get("event_type", {}).get("id") == "maintenanceState"
     )
-    if alerthistid:
-        if _config.get_ignore_maintenance() and on_maintenance:
-            _logger.info(
-                "Not posting incident as alert subject is on maintenance: %s",
-                alert.get("message"),
-            )
-            return
-        # We don't care about most of the contents of the JSON blob we received,
-        # actually, since we can fetch what we want and more directly from the NAV
-        # database
+    if not alerthistid:
+        return
+
+    if _config.get_ignore_maintenance() and on_maintenance:
+        _logger.info(
+            "Not posting incident as alert subject is on maintenance: %s",
+            alert.get("message"),
+        )
+        return
+    # We don't care about most of the contents of the JSON blob we received,
+    # actually, since we can fetch what we want and more directly from the NAV
+    # database
+    try:
+        alerthist = AlertHistory.objects.get(pk=alerthistid)
+    except AlertHistory.DoesNotExist:
+        # Workaround for eventengine bug: Its transaction is potentially not
+        # committed yet, so we wait just a little bit:
+        time.sleep(1)
         try:
             alerthist = AlertHistory.objects.get(pk=alerthistid)
         except AlertHistory.DoesNotExist:
-            # Workaround for eventengine bug: Its transaction is potentially not
-            # committed yet, so we wait just a little bit:
-            time.sleep(1)
-            try:
-                alerthist = AlertHistory.objects.get(pk=alerthistid)
-            except AlertHistory.DoesNotExist:
-                _logger.error(
-                    "Ignoring invalid alerthist PK received from event engine: %r",
-                    alerthistid,
-                )
-                return
+            _logger.error(
+                "Ignoring invalid alerthist PK received from event engine: %r",
+                alerthistid,
+            )
+            return
 
-        state = alert.get("state")
-        if state in (STATE_START, STATE_STATELESS):
-            incident = convert_alerthistory_object_to_argus_incident(alerthist)
-            post_incident_to_argus(incident)
-        else:
-            # when resolving, the AlertHistory timestamp may not have been updated yet
-            timestamp = alert.get("time")
-            resolve_argus_incident(alerthist, timestamp)
+    state = alert.get("state")
+    if state in (STATE_START, STATE_STATELESS):
+        incident = convert_alerthistory_object_to_argus_incident(alerthist)
+        post_incident_to_argus(incident)
+    else:
+        # when resolving, the AlertHistory timestamp may not have been updated yet
+        timestamp = alert.get("time")
+        resolve_argus_incident(alerthist, timestamp)
 
 
 def convert_alerthistory_object_to_argus_incident(alert: AlertHistory) -> Incident:
