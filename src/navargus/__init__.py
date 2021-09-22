@@ -20,7 +20,7 @@ Exports events from NAV's Event Engine streaming interface into an Argus server.
 
 JSON parsing inspired by https://stackoverflow.com/a/58442063
 """
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 
 import select
 import sys
