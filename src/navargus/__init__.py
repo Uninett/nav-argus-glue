@@ -114,7 +114,11 @@ def read_eventengine_stream():
     """
     # Ensure we do non-blocking reads from stdin, as we don't wont to get stuck when
     # we receive blobs that are smaller than the set buffer size
-    _logger.info("Accepting eventengine stream data on stdin (pid=%s)", os.getpid())
+    _logger.info(
+        "Accepting eventengine stream data on stdin (pid=%s, version=%s)",
+        os.getpid(),
+        __version__,
+    )
     fd = sys.stdin.fileno()
     flag = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, flag | os.O_NONBLOCK)
