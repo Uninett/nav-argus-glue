@@ -47,6 +47,7 @@ from nav.models.service import Service
 from nav.models.event import AlertHistory, STATE_START, STATE_STATELESS, STATE_END
 from nav.logs import init_stderr_logging
 from nav.config import open_configfile
+from nav.buildconf import VERSION as _NAV_VERSION
 
 from django.urls import reverse
 from django.db.models import Q
@@ -56,6 +57,8 @@ _logger = logging.getLogger("navargus")
 _client = None
 _config = None  # type: Configuration
 NOT_WHITESPACE = re.compile(r"[^\s]")
+NAV_SERIES = tuple(int(i) for i in _NAV_VERSION.split(".")[:2])
+NAV_VERSION_WITH_SEVERITY = (5, 2)
 
 
 def main():
@@ -227,12 +230,11 @@ def convert_alerthistory_object_to_argus_incident(alert: AlertHistory) -> Incide
 
 
 def convert_severity_to_level(severity: int) -> int:
-    """Converts a NAV severity level into an Argus Incident level.
-
-    ATM, NAV severities are poorly defined, so this just falls back to the default
-    level as set in the config file
-    """
-    return _config.get_default_level()
+    """Converts a NAV severity level into an Argus Incident level"""
+    if NAV_SERIES >= NAV_VERSION_WITH_SEVERITY:
+        return severity  # NAV severity levels match Argus levels from this version on
+    else:
+        return _config.get_default_level()
 
 
 def get_short_start_description(alerthist: AlertHistory):
