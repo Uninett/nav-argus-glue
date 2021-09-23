@@ -24,6 +24,10 @@ tags:
     service: CNaaS
 
 filters:
-  # This options ensures no incidents are posted where the alert subject is on
+  # This option ensures no incidents are posted where the alert subject is on
   # maintenance
   ignore-maintenance: true
+
+  # This option controls whether stateless NAV alerts should be submitted as
+  # Argus incidents at all
+  ignore-stateless: false
