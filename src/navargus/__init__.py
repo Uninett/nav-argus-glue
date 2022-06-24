@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2020, 2021 UNINETT
+# Copyright (C) 2022 Sikt
 #
 # This file is part of nav-argus-glue.
 #
@@ -17,4 +18,4 @@
 
 Package definition. The main executable is contained in glue.py.
 """
-__version__ = "0.6.3"
+__version__ = "0.6.4"

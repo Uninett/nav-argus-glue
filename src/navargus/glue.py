@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #
 # Copyright (C) 2020, 2021 UNINETT
+# Copyright (C) 2022 Sikt
 #
 # This file is part of nav-argus-glue.
 #
