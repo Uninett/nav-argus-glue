@@ -60,6 +60,7 @@ _config = None  # type: Configuration
 NOT_WHITESPACE = re.compile(r"[^\s]")
 NAV_SERIES = tuple(int(i) for i in _NAV_VERSION.split(".")[:2])
 NAV_VERSION_WITH_SEVERITY = (5, 2)
+SELECT_TIMEOUT = 30.0  # seconds
 
 
 def main():
@@ -147,10 +148,16 @@ def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
     buffer = ""
     error = None
     while True:
-        select.select([stream], [], [])
-        block = stream.read(buf_size)
-        if not block:
+        readable, _, _ = select.select([stream], [], [], SELECT_TIMEOUT)
+        if stream in readable:
+            _logger.debug("reading data from %r", stream)
+            block = stream.read(buf_size)
+            if not block:
+                continue
+        else:
+            _logger.debug("select timed out")
             continue
+
         buffer += block
         pos = 0
         while True:
