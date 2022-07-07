@@ -128,6 +128,7 @@ def read_eventengine_stream():
 
     try:
         for alert in emit_json_objects_from(sys.stdin):
+            _logger.debug("got alert to dispatch: %r", alert.get("message"))
             dispatch_alert_to_argus(alert)
     except KeyboardInterrupt:
         _logger.info("Keyboard interrupt received, exiting")
