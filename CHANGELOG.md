@@ -5,6 +5,14 @@ Notable changes to the library will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Fully empty the eventengine input stream when the last read buffer was
+  full. Otherwise, some events would go missing and never be reported to Argus
+  (or reported only the next time new data is available).
+
 ## [0.6.4] - 2022-06-24
 
 ### Fixed
