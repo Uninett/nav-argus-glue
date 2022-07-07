@@ -148,14 +148,18 @@ def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
     :type decoder: JSONDecoder
     """
     buffer = ""
+    last_block_size = 0
     error = None
     while True:
-        readable, _, _ = select.select([stream], [], [], SELECT_TIMEOUT)
-        if stream in readable:
+        if last_block_size < buf_size:
+            readable, _, _ = select.select([stream], [], [], SELECT_TIMEOUT)
+        if last_block_size >= buf_size or stream in readable:
             _logger.debug("reading data from %r", stream)
             block = stream.read(buf_size)
             if not block:
+                last_block_size = 0
                 continue
+            last_block_size = len(block)
         else:
             _logger.debug("select timed out")
             continue
