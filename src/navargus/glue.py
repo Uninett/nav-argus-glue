@@ -25,7 +25,6 @@ JSON parsing inspired by https://stackoverflow.com/a/58442063
 import select
 import sys
 import os
-import fcntl
 import re
 import logging
 import argparse
@@ -121,9 +120,7 @@ def read_eventengine_stream():
         os.getpid(),
         version,
     )
-    fd = sys.stdin.fileno()
-    flag = fcntl.fcntl(fd, fcntl.F_GETFL)
-    fcntl.fcntl(fd, fcntl.F_SETFL, flag | os.O_NONBLOCK)
+    os.set_blocking(sys.stdin.fileno(), False)
 
     try:
         for alert in emit_json_objects_from(sys.stdin):
