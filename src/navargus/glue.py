@@ -153,6 +153,16 @@ def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
             _logger.debug("reading data from %r", stream)
             block = stream.read(buf_size)
             if not block:
+                if not last_block_size:
+                    # select() will keep claiming that the input handle has data
+                    # available when the input pipe is actually gone. If we read two
+                    # empty blocks in a row, we take it as a sign that our input is
+                    # gone, and we should exit.
+                    _logger.info(
+                        "read multiple empty blocks in a row, maybe input went away. "
+                        "aborting..."
+                    )
+                    return
                 last_block_size = 0
                 continue
             last_block_size = len(block)
