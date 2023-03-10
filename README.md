@@ -1,5 +1,5 @@
-NAV ↔️ Argus glue service
-==========================
+NAV ↔ Argus glue service
+========================
 
 This is a glue service for integration between
 [Argus](https://github.com/Uninett/Argus), the alert aggregation server, and
@@ -9,7 +9,7 @@ network monitoring software suite provided by Uninett.
 How it works
 ============
 
-`navargus` acts as an export script in the NAV event engine. It accepts
+`navargus` acts as an export script for the NAV event engine. It accepts
 stacked, JSON-serialized alert objects on its STDIN.
 The event engine will feed `navargus` a continuous stream of NAV alerts as they
 are generated. `navargus` uses these alerts to either create new incidents in
@@ -26,7 +26,7 @@ NAV
 ---
 Add `navargus` in the `[export]` section of the `eventengine.conf` file.
 
-```aconf
+```ini
 [export]
 # If set, the script option will point to a program that will receive a
 # continuous stream of JSON serialized alert objects on its STDIN.
@@ -66,5 +66,5 @@ To learn more about tags, refer to
 A full configuration file example is provided in
 [navargus.example.yml](navargus.example.yml).
 
-Now, you can run the command `navargus --test-api` to check whether the glue
+Now, you can run the command `navargus --test-api` to verify that the glue
 service is properly configured and able to query the Argus API.
