@@ -5,6 +5,13 @@ Notable changes to the library will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Stop navargus from getting stuck in a CPU-eating tight loop when the controlling eventengine process exits ([#11](https://github.com/Uninett/nav-argus-glue/issues/11)).
+- Slightly restructured and updated [README.md](README.md).
+
 ## [0.6.5] - 2022-07-07
 
 ### Fixed
