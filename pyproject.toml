@@ -1,3 +1,48 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nav-argus-glue"
+authors = [{name = "Morten Brekkevold", email = "morten.brekkevold@sikt.no"}]
+description = "An Argus glue service for Network Administration Visualized"
+keywords = ["api", "argus", "client"]
+license = {text = "GPLv3"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.5",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
+dependencies = [
+    "simple_rest_client==1.0.8",
+    "argus-api-client>=0.4.2",
+    "pyaml",
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+Homepage = "https://github.com/Uninett/nav-argus-glue"
+
+[project.scripts]
+navargus = "navargus.glue:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.dynamic]
+version = {attr = "navargus.__version__"}
+
 [tool.black]
 line-length = 88
 exclude = '''
