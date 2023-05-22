@@ -19,7 +19,6 @@ dependencies = [
     "simple_rest_client==1.0.8",
     "argus-api-client>=0.4.2",
     "pyaml",
-    "nav@git+https://github.com/Uninett/nav/tarball/5.6.0#egg=nav-5.6.0",
 ]
 dynamic = ["version"]
 
