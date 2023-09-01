@@ -55,7 +55,7 @@ from django.urls import reverse
 
 _logger = logging.getLogger("navargus")
 _client = None
-_config = None  # type: Configuration
+_config: "Configuration" = None
 NOT_WHITESPACE = re.compile(r"[^\s]")
 NAV_SERIES = tuple(int(i) for i in _NAV_VERSION.split(".")[:2])
 NAV_VERSION_WITH_SEVERITY = (5, 2)
@@ -356,7 +356,7 @@ def get_argus_client():
     global _client
     if not _client:
         _client = Client(
-            api_root_url=_config.get_api_url(), token=_config.get_api_token()
+            api_root_url=_config.get_api_url(), token=_config.get_api_token(), timeout=_config.get_api_timeout()
         )
     return _client
 
@@ -554,6 +554,10 @@ class Configuration(dict):
     def get_api_token(self):
         """Returns the configured Argus API access token"""
         return self.get("api", {}).get("token")
+
+    def get_api_timeout(self) -> float:
+        """Returns the configured API request timeout value"""
+        return float(self.get("api", {}).get("timeout", 2.0))
 
     def get_sync_on_startup(self):
         """Returns True if this program should always sync the Argus API on startup"""
