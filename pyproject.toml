@@ -16,7 +16,6 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 dependencies = [
-    "simple_rest_client==1.0.8",
     "argus-api-client>=0.4.2",
     "pyaml",
 ]
