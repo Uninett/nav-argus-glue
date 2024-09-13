@@ -15,7 +15,7 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 dependencies = [
-    "argus-api-client>=0.4.2",
+    "argus-api-client>=0.5.0",
     "pyaml",
 ]
 dynamic = ["version"]
