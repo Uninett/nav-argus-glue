@@ -19,8 +19,8 @@ with Argus.
 
 ## Configuration
 
-NAV
----
+### NAV
+
 Add `navargus` in the `[export]` section of the `eventengine.conf` file.
 
 ```ini
@@ -30,15 +30,15 @@ Add `navargus` in the `[export]` section of the `eventengine.conf` file.
 script = /path/to/navargus
 ```
 
-Argus
------
+### Argus
+
 In the Argus admin interface, create a new "Source system" for your
 NAV instance. This will automatically create an Argus user account for
 this instance. Now, use the Argus admin interface to create an authentication
 token for your user.
 
-NAV-Argus glue service
-----------------------
+### NAV-Argus glue service
+
 `navargus` is configured via `navargus.yml`. Since `navargus` is designed to
 run in conjunction with NAV's event engine, this config file must be placed in
 NAV's config directory (typically `/etc/nav`).
