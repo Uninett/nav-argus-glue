@@ -1,4 +1,6 @@
 # NAV ↔ Argus glue service
+![PyPI](https://img.shields.io/pypi/v/nav-argus-glue?label=PyPI)
+![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
 
 This is a glue service for integration between
 [Argus](https://github.com/Uninett/Argus), the alert aggregation server, and
@@ -16,6 +18,15 @@ the Argus API, or resolve existing ones as needed.
 Refer to the Argus server documentation to learn more about [integrating monitoring 
 systems](https://argus-server.readthedocs.io/en/latest/integrating-monitoring-systems.html)
 with Argus.
+
+## Installation
+
+If you don't want to install from the source code repository, the latest
+version of the package is always available on PyPI:
+
+```shell
+pip install nav-argus-glue
+```
 
 ## Configuration
 
