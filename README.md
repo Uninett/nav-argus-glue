@@ -1,4 +1,6 @@
 # NAV ↔ Argus glue service
+![PyPI](https://img.shields.io/pypi/v/nav-argus-glue?label=PyPI)
+![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
 
 This is a glue service for integration between
 [Argus](https://github.com/Uninett/Argus), the alert aggregation server, and
