@@ -17,6 +17,15 @@ Refer to the Argus server documentation to learn more about [integrating monitor
 systems](https://argus-server.readthedocs.io/en/latest/integrating-monitoring-systems.html)
 with Argus.
 
+## Installation
+
+If you don't want to install from the source code repository, the latest
+version of the package is always available on PyPI:
+
+```shell
+pip install nav-argus-glue
+```
+
 ## Configuration
 
 ### NAV
