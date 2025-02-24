@@ -356,7 +356,9 @@ def get_argus_client():
     global _client
     if not _client:
         _client = Client(
-            api_root_url=_config.get_api_url(), token=_config.get_api_token(), timeout=_config.get_api_timeout()
+            api_root_url=_config.get_api_url(),
+            token=_config.get_api_token(),
+            timeout=_config.get_api_timeout(),
         )
     return _client
 
