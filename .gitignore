@@ -10,6 +10,8 @@
 *.egg-info
 \#*
 
+!.git-blame-ignore-revs
+
 # These directories conist of only generated files.
 /build
 /dist
