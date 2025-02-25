@@ -29,7 +29,7 @@ import re
 import logging
 import argparse
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from json import JSONDecoder, JSONDecodeError
 from typing import Generator, Tuple, List
 
@@ -60,6 +60,7 @@ NOT_WHITESPACE = re.compile(r"[^\s]")
 NAV_SERIES = tuple(int(i) for i in _NAV_VERSION.split(".")[:2])
 NAV_VERSION_WITH_SEVERITY = (5, 2)
 SELECT_TIMEOUT = 30.0  # seconds
+RESYNC_INTERVAL = timedelta(minutes=1)
 
 
 def main():
@@ -146,7 +147,12 @@ def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
     buffer = ""
     last_block_size = 0
     error = None
+    last_full_sync = None
     while True:
+        if not last_full_sync or last_full_sync + RESYNC_INTERVAL < datetime.now():
+            do_sync()
+            last_full_sync = datetime.now()
+
         if last_block_size < buf_size:
             readable, _, _ = select.select([stream], [], [], SELECT_TIMEOUT)
         if last_block_size >= buf_size or stream in readable:
