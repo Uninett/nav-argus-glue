@@ -15,7 +15,7 @@ The event engine will feed `navargus` a continuous stream of NAV alerts as they
 are generated. `navargus` uses these alerts to either create new incidents in
 the Argus API, or resolve existing ones as needed.
 
-Refer to the Argus server documentation to learn more about [integrating monitoring 
+Refer to the Argus server documentation to learn more about [integrating monitoring
 systems](https://argus-server.readthedocs.io/en/latest/integrating-monitoring-systems.html)
 with Argus.
 
