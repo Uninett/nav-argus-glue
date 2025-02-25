@@ -31,7 +31,7 @@ import argparse
 import time
 from datetime import datetime, timedelta
 from json import JSONDecoder, JSONDecodeError
-from typing import Generator, Tuple, List
+from typing import Generator, List, Tuple, Optional
 
 import yaml
 
@@ -60,7 +60,6 @@ NOT_WHITESPACE = re.compile(r"[^\s]")
 NAV_SERIES = tuple(int(i) for i in _NAV_VERSION.split(".")[:2])
 NAV_VERSION_WITH_SEVERITY = (5, 2)
 SELECT_TIMEOUT = 30.0  # seconds
-RESYNC_INTERVAL = timedelta(minutes=1)
 
 
 def main():
@@ -77,8 +76,6 @@ def main():
     elif parser.sync:
         do_sync()
     else:
-        if _config.get_sync_on_startup():
-            do_sync()
         read_eventengine_stream()
 
 
@@ -147,9 +144,13 @@ def emit_json_objects_from(stream, buf_size=1024, decoder=JSONDecoder()):
     buffer = ""
     last_block_size = 0
     error = None
-    last_full_sync = None
+    last_full_sync: Optional[datetime] = None
     while True:
-        if not last_full_sync or last_full_sync + RESYNC_INTERVAL < datetime.now():
+        sync_interval = _config.get_sync_interval()
+        if sync_interval and (
+            not last_full_sync
+            or last_full_sync + timedelta(minutes=sync_interval) < datetime.now()
+        ):
             do_sync()
             last_full_sync = datetime.now()
 
@@ -567,9 +568,31 @@ class Configuration(dict):
         """Returns the configured API request timeout value"""
         return float(self.get("api", {}).get("timeout", 2.0))
 
-    def get_sync_on_startup(self):
-        """Returns True if this program should always sync the Argus API on startup"""
-        return bool(self.get("api", {}).get("sync-on-startup"))
+    def get_sync_interval(self):
+        """Returns the configured sync interval in minutes.
+
+        The sync interval determines how often a full re-sync against the Argus API
+        should take place. A value of `None` means that periodic re-sync should not
+        take place.
+
+        """
+        sync_interval = self.get("api", {}).get("sync-interval", 1)
+        if not sync_interval:
+            return None
+
+        try:
+            sync_interval = int(sync_interval)
+        except ValueError:
+            raise ValueError(
+                "The setting for sync-interval must be a positive integer. Current value: %r",
+                sync_interval,
+            )
+        if sync_interval < 0:
+            raise ValueError(
+                "The setting for sync-interval must be a positive integer. Current value: %i",
+                sync_interval,
+            )
+        return sync_interval
 
     def get_default_level(self) -> int:
         return int(self.get("api", {}).get("default-level", 3))
