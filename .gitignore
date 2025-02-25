@@ -10,6 +10,7 @@
 *.egg-info
 \#*
 
+!.github/
 !.git-blame-ignore-revs
 
 # These directories conist of only generated files.
