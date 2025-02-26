@@ -574,9 +574,22 @@ class Configuration(dict):
         it is None, no re-sync should happen
         """
         sync_interval = self.get("api", {}).get("sync-interval", 1)
-        if sync_interval is None:
+        if not sync_interval:
             return None
-        return int(sync_interval)
+
+        try:
+            sync_interval = int(sync_interval)
+        except ValueError:
+            raise ValueError(
+                "The setting for sync-interval must be a positive integer. Current value: %r",
+                sync_interval,
+            )
+        if sync_interval < 0:
+            raise ValueError(
+                "The setting for sync-interval must be a positive integer. Current value: %i",
+                sync_interval,
+            )
+        return sync_interval
 
     def get_default_level(self) -> int:
         return int(self.get("api", {}).get("default-level", 3))
