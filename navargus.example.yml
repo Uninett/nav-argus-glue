@@ -9,10 +9,11 @@ api:
   # Timeout defaults to 2.0 seconds, but may be to small in some production settings
   # timeout: 2.0
 
-  # If set to true, this ensures state differences between NAV alerts and Argus
-  # Incidents are synchronized before navargus begins reading new alerts from
-  # stdin
-  sync-on-startup: true
+  # This controls how often state differences between NAV alerts and Argus
+  # Incidents are synchronized
+  # This is set to minutes
+  # If it is set to null no automatic re-sync will happen
+  # sync-interval: 1
 
   # The default severity level value to use if none can be determined from NAV
   default-level: 3
