@@ -472,7 +472,7 @@ def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
     client = get_argus_client()
     nav_alerts = AlertHistory.objects.unresolved().prefetch_related("messages")
     if _config.get_ignore_maintenance():
-        nav_alerts = (a for a in nav_alerts if not was_on_maintenance(a))
+        nav_alerts = (a for a in nav_alerts if not a.get_subject().is_on_maintenance())
     nav_alerts = {a.pk: a for a in nav_alerts}
     argus_incidents = {
         int(i.source_incident_id): i for i in client.get_my_incidents(open=True)
@@ -485,42 +485,6 @@ def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
         [argus_incidents[i] for i in missed_resolve],
         [nav_alerts[i] for i in missed_open],
     )
-
-
-def was_on_maintenance(alert: AlertHistory):
-    """Returns True if the subject of the alert appeared to be on maintenance at the
-    time the alert was issued.
-
-    The NAV libraries contain API calls to evaluate whether an alert subject is
-    currently on maintenance. However, it doesn't currently have the ability to
-    easily evaluate whether something was on maintenance at a particular point in
-    time. This becomes important to nav-argus-glue when syncing potentially old
-    alerts from the NAV alert history to Argus (NAV 5.1 at the time of this writing)
-    - hence, this function exists.
-    """
-    on_maintenance = False
-    maintenances = AlertHistory.objects.filter(
-        event_type="maintenanceState",
-        netbox=alert.netbox,
-        start_time__lte=alert.start_time,
-        end_time__gte=alert.start_time,
-    )
-    subject = alert.get_subject()
-    if isinstance(subject, Service):
-        on_maintenance = maintenances.filter(subid=str(subject.id)).count() > 0
-    if not on_maintenance:
-        # if service wasn't explicitly on service, check whether the netbox itself was
-        on_maintenance = maintenances.filter(subid="").count() > 0
-
-    if on_maintenance:
-        _logger.debug(
-            "%s was on maintenance when the alert took place: %s",
-            subject,
-            describe_alerthist(alert),
-        )
-        return True
-    else:
-        return False
 
 
 def describe_alerthist(alerthist: AlertHistory):
