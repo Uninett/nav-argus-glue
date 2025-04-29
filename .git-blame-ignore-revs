@@ -1,2 +1,4 @@
 # Reformat code using black v25.1.0
 326104367c174b357f3e60ce7614ef90ab0c4c77
+# Reformat codebase using ruff v0.11.7
+ac1945f933b29d3c8a540f5d7807da384927dec8
