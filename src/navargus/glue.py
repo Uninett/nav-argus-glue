@@ -44,7 +44,6 @@ from nav.models.fields import INFINITY
 bootstrap_django("navargus")
 
 from nav.models.manage import Netbox, Interface
-from nav.models.service import Service
 from nav.models.event import AlertHistory, STATE_START, STATE_STATELESS, STATE_END
 from nav.logs import init_stderr_logging
 from nav.config import open_configfile

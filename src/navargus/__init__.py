@@ -18,4 +18,5 @@
 
 Package definition. The main executable is contained in glue.py.
 """
+
 __version__ = "0.8.0"

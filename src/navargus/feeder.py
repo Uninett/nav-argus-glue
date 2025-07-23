@@ -4,6 +4,7 @@
 It serves to verify that navargus is able to identify that its input has gone away,
 so it can exit rather than fall into a tight loop.
 """
+
 import subprocess
 import os
 import sys
