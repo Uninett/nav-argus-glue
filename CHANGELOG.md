@@ -5,12 +5,18 @@ Notable changes to the library will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2025-07-24
+
+### Fixed
+
+- Only ignore alerts for subjects currently on maintenance.
+
 ## [0.8.0] - 2025-04-08
 
 ### Added
 
 - Periodic full re-synchronization can now be enabled.  Use the new
-  `sync-interval` config option to specify the interval in minutes. 
+  `sync-interval` config option to specify the interval in minutes.
   The default is `1`.  If set to `null`, no full synchronization is
   performed.
 
