@@ -471,7 +471,7 @@ def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
     client = get_argus_client()
     nav_alerts = AlertHistory.objects.unresolved().prefetch_related("messages")
     if _config.get_ignore_maintenance():
-        nav_alerts = (a for a in nav_alerts if not a.get_subject().is_on_maintenance())
+        nav_alerts = (a for a in nav_alerts if not is_on_maintenance(a))
     nav_alerts = {a.pk: a for a in nav_alerts}
     argus_incidents = {
         int(i.source_incident_id): i for i in client.get_my_incidents(open=True)
@@ -484,6 +484,18 @@ def get_unsynced_report() -> Tuple[List[Incident], List[AlertHistory]]:
         [argus_incidents[i] for i in missed_resolve],
         [nav_alerts[i] for i in missed_open],
     )
+
+
+def is_on_maintenance(alert: AlertHistory):
+    """Verifies whether if the alert subject is considered to be on maintenance.
+
+    Not all alert subjects support the is_on_maintenance() method, so we try to fall
+    back to asking the associated Netbox object instead.
+    """
+    try:
+        return alert.get_subject().is_on_maintenance()
+    except AttributeError:
+        return alert.netbox.is_on_maintenance() if alert.netbox else False
 
 
 def describe_alerthist(alerthist: AlertHistory):
