@@ -5,6 +5,12 @@ Notable changes to the library will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2025-08-21
+
+### Fixed
+
+- Fix regression (crash bug) introduced by v0.8.1.
+
 ## [0.8.1] - 2025-07-24
 
 ### Fixed
