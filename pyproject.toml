@@ -25,7 +25,9 @@ file = "README.md"
 content-type = "text/markdown"
 
 [project.urls]
-Homepage = "https://github.com/Uninett/nav-argus-glue"
+GitHub = "https://github.com/Uninett/nav-argus-glue"
+Argus = "https://network.geant.org/argus/"
+NAV = "http://nav.uninett.no/"
 
 [project.scripts]
 navargus = "navargus.glue:main"
