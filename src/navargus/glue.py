@@ -315,6 +315,7 @@ def build_tags_from(alert: AlertHistory) -> Generator:
         organization = alert.netbox.organization
         yield "organization", organization.id
         # Add all parent organizations as tags
+        # TODO: add caching of organization structure
         while organization := organization.parent:
             yield "organization", organization.id
     if isinstance(subject, Netbox):
