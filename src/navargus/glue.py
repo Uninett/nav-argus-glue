@@ -312,7 +312,12 @@ def build_tags_from(alert: AlertHistory) -> Generator:
         yield "host", alert.netbox.sysname
         yield "room", alert.netbox.room.id
         yield "location", alert.netbox.room.location.id
-        yield "organization", alert.netbox.organization.id
+        organization = alert.netbox.organization
+        yield "organization", organization.id
+        # Add all parent organizations as tags
+        # TODO: add caching of organization structure
+        while organization := organization.parent:
+            yield "organization", organization.id
     if isinstance(subject, Netbox):
         yield "host_url", subject.get_absolute_url()
     elif isinstance(subject, Interface):
