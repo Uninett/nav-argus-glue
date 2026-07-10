@@ -112,3 +112,13 @@ showcontent = true
 directory = "fixed"
 name = "Fixed"
 showcontent = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.report]
+exclude_also = [
+    "\\.\\.\\.",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
