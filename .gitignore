@@ -17,3 +17,4 @@
 # These directories conist of only generated files.
 /build
 /dist
+/reports
