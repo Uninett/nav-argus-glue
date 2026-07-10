@@ -57,6 +57,12 @@ fixable = ["I"]
 ignore = ["E402"]
 
 [dependency-groups]
+test = [
+    "coverage",
+    "pytest>7",
+    "pytest-cov",
+    "tox",
+]
 maintenance = [
     "towncrier",
     "uv",
@@ -65,6 +71,7 @@ dev = [
     "ruff",
     "pre-commit",
     {include-group = "maintenance"},
+    {include-group = "test"},
 ]
 
 [tool.towncrier]
