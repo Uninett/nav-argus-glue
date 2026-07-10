@@ -8,10 +8,12 @@ authors = [{name = "Morten Brekkevold", email = "morten.brekkevold@sikt.no"}]
 description = "An Argus glue service for Network Administration Visualized"
 keywords = ["api", "argus", "client"]
 license = "GPL-3.0-only"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
     "argus-api-client>=0.5.0",
@@ -44,6 +46,7 @@ version = {attr = "navargus.__version__"}
 
 [tool.ruff]
 line-length = 88
+target-version = "py311"
 extend-exclude = [
     ".egg-info",
 ]
