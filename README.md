@@ -79,11 +79,19 @@ service is properly configured and able to query the Argus API.
 
 ## Code style
 
-This module uses Black as a source code formatter for Python code.
+This project uses [Ruff](https://docs.astral.sh/ruff/) for both linting and
+source code formatting.
 
-A pre-commit hook will format new code automatically before committing.
-To enable this pre-commit hook, run
+A pre-commit hook runs Ruff automatically before each commit. To enable this
+pre-commit hook, run
 
 ```console
 $ pre-commit install
+```
+
+You can also run the checks manually:
+
+```console
+$ ruff check
+$ ruff format
 ```
