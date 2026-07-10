@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.2"]
+requires = ["setuptools>=61.2", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -41,8 +41,7 @@ include-package-data = false
 where = ["src"]
 namespaces = false
 
-[tool.setuptools.dynamic]
-version = {attr = "navargus.__version__"}
+[tool.setuptools_scm]
 
 [tool.ruff]
 line-length = 88
