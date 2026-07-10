@@ -57,7 +57,12 @@ fixable = ["I"]
 ignore = ["E402"]
 
 [dependency-groups]
+maintenance = [
+    "towncrier",
+    "uv",
+]
 dev = [
     "ruff",
     "pre-commit",
+    {include-group = "maintenance"},
 ]
