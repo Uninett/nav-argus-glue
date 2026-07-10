@@ -1,0 +1,33 @@
+name: Run tests
+
+on:
+  push:
+    branches: master
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    name: Test on Python ${{ matrix.python-version }}
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        # setuptools_scm needs the full history and tags to derive the version
+        fetch-depth: 0
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install tox
+      run: pip install tox tox-gh-actions
+    - name: Run tests
+      run: tox
+    - name: Upload reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: reports-${{ matrix.python-version }}
+        path: reports/**/*
