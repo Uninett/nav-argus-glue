@@ -1,6 +1,9 @@
 # NAV ↔ Argus glue service
-![PyPI](https://img.shields.io/pypi/v/nav-argus-glue?label=PyPI)
-![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
+
+[![PyPI version](https://img.shields.io/pypi/v/nav-argus-glue)](https://pypi.org/project/nav-argus-glue/)
+[![Supported Python versions](https://img.shields.io/pypi/pyversions/nav-argus-glue)](https://pypi.org/project/nav-argus-glue/)
+[![Lint](https://github.com/Uninett/nav-argus-glue/actions/workflows/lint.yml/badge.svg)](https://github.com/Uninett/nav-argus-glue/actions/workflows/lint.yml)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
 This is a glue service for integration between
 [Argus](https://github.com/Uninett/Argus), the alert aggregation server, and
@@ -79,11 +82,19 @@ service is properly configured and able to query the Argus API.
 
 ## Code style
 
-This module uses Black as a source code formatter for Python code.
+This project uses [Ruff](https://docs.astral.sh/ruff/) for both linting and
+source code formatting.
 
-A pre-commit hook will format new code automatically before committing.
-To enable this pre-commit hook, run
+A pre-commit hook runs Ruff automatically before each commit. To enable this
+pre-commit hook, run
 
 ```console
 $ pre-commit install
+```
+
+You can also run the checks manually:
+
+```console
+$ ruff check
+$ ruff format
 ```
