@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.2"]
+requires = ["setuptools>=61.2", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,10 +8,12 @@ authors = [{name = "Morten Brekkevold", email = "morten.brekkevold@sikt.no"}]
 description = "An Argus glue service for Network Administration Visualized"
 keywords = ["api", "argus", "client"]
 license = "GPL-3.0-only"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
     "argus-api-client>=0.5.0",
@@ -39,16 +41,23 @@ include-package-data = false
 where = ["src"]
 namespaces = false
 
-[tool.setuptools.dynamic]
-version = {attr = "navargus.__version__"}
+[tool.setuptools_scm]
 
 [tool.ruff]
 line-length = 88
+target-version = "py311"
 extend-exclude = [
     ".egg-info",
 ]
 output-format = "full"
 
 [tool.ruff.lint]
-select = ["BLE001", "E4", "E7", "E9", "F"]
+select = ["BLE001", "E4", "E7", "E9", "F", "I"]
+fixable = ["I"]
 ignore = ["E402"]
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "pre-commit",
+]
