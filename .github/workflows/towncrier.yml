@@ -16,9 +16,7 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Install towncrier
-      run: |
-        sudo apt-get install -y pipx
-        pipx install towncrier
+    - uses: astral-sh/setup-uv@v7
+
     - name: Check for changelog file
-      run: towncrier check --compare-with origin/master
+      run: uvx towncrier check --compare-with origin/master
