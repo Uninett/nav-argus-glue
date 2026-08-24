@@ -12,7 +12,7 @@
 
 !.github/
 !.git-blame-ignore-revs
-!changelog.d/.gitkeep
+!.gitkeep
 
 # These directories conist of only generated files.
 /build
