@@ -22,35 +22,31 @@ Exports events from NAV's Event Engine streaming interface into an Argus server.
 JSON parsing inspired by https://stackoverflow.com/a/58442063
 """
 
-import select
-import sys
+import argparse
+import logging
 import os
 import re
-import logging
-import argparse
+import select
+import sys
 import time
 from datetime import datetime, timedelta
-from json import JSONDecoder, JSONDecodeError
-from typing import Generator, List, Tuple, Optional
+from json import JSONDecodeError, JSONDecoder
+from typing import Generator, List, Optional, Tuple
 
 import yaml
-
+from nav.bootstrap import bootstrap_django
+from nav.models.fields import INFINITY
 from pyargus.client import Client
 from pyargus.models import Incident
 
-from nav.bootstrap import bootstrap_django
-from nav.models.fields import INFINITY
-
 bootstrap_django("navargus")
 
-from nav.models.manage import Netbox, Interface
-from nav.models.event import AlertHistory, STATE_START, STATE_STATELESS, STATE_END
-from nav.logs import init_stderr_logging
-from nav.config import open_configfile
-from nav.buildconf import VERSION as _NAV_VERSION
-
 from django.urls import reverse
-
+from nav.buildconf import VERSION as _NAV_VERSION
+from nav.config import open_configfile
+from nav.logs import init_stderr_logging
+from nav.models.event import STATE_END, STATE_START, STATE_STATELESS, AlertHistory
+from nav.models.manage import Interface, Netbox
 
 _logger = logging.getLogger("navargus")
 _client = None

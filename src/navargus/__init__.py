@@ -19,4 +19,9 @@
 Package definition. The main executable is contained in glue.py.
 """
 
-__version__ = "0.9.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("nav-argus-glue")
+except PackageNotFoundError:  # pragma: no cover
+    __version__ = "unknown"

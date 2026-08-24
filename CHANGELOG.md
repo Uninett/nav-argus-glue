@@ -5,6 +5,12 @@ Notable changes to the library will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+
+- Dropped support for Python versions older than 3.11, in line with NAV.
+
 ## [0.9.0] - 2026-02-18
 
 ### Added
